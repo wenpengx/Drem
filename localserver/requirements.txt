@@ -1,8 +1,7 @@
-# Tapnow Local Server Python Dependencies
-# ========================================
+# Dream Local Server Python Dependencies
 
-# 图像处理 (PNG转JPG功能)
+# Image processing and PNG-to-JPG conversion.
 Pillow>=9.0.0
 
-# WebSocket 客户端 (ComfyUI 中间件)
+# WebSocket client for ComfyUI middleware.
 websocket-client>=1.0.0

@@ -1,7 +1,7 @@
 {
     "allowed_roots": [
         "~/Downloads",
-        "D:\\TapnowData"
+        "D:\\DreamData"
     ],
     "proxy_allowed_hosts": [
         "api.openai.com",

@@ -1,7 +1,7 @@
 import i18n from './i18n';
 
 /**
- * Tapnow V3.5.20-1 Performance Benchmark Test
+ * Dream 1.0.0 Performance Benchmark Test
  * 
  * 测试说明：
  * 1. 在浏览器 DevTools Console 中运行此脚本
@@ -95,7 +95,7 @@ const PerformanceBenchmark = {
         return {
             systemTimersPerSecond: (timerCount / (durationMs / 1000)).toFixed(0),
             expectedNodeTimerCalls: expectedNodeTimerCalls.toFixed(0),
-            note: t('V3.5.20-1 应为 500ms 间隔 (原 100ms)')
+            note: t('Dream 应为 500ms 间隔')
         };
     },
 
@@ -129,7 +129,7 @@ const PerformanceBenchmark = {
 
     // 运行所有测试
     async runAll() {
-        console.log('🚀 Tapnow V3.5.20-1 Performance Benchmark');
+        console.log('Dream 1.0.0 Performance Benchmark');
         console.log('=========================================\n');
 
         console.log(`1️⃣ ${t('内存使用')}:`);

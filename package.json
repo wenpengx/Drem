@@ -1,17 +1,13 @@
 {
-  "name": "tapnow-studio",
+  "name": "dream",
   "private": true,
-  "version": "3.8.8-rc7",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/copy-versioned-build.cjs",
-    "preview": "vite preview",
-    "test:k87": "node scripts/k87_feature_tests.cjs",
-    "test:storyboard-parser": "node scripts/storyboard_project_parser_regression.cjs",
-    "test:storyboard-roundtrip": "node scripts/storyboard_save_load_roundtrip_regression.cjs",
-    "test:smoke-playwright": "node scripts/smoke_playwright_fallback.cjs",
-    "test:release:gates": "npm run test:k87 && npm run test:storyboard-parser && npm run test:storyboard-roundtrip"
+    "dev:server": "python -m localserver.dream_server",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "dompurify": "^3.0.8",

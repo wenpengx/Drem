@@ -68,6 +68,31 @@ import i18n from './i18n';
 
 const DEFAULT_VIEW = { x: 0, y: 0, zoom: 1 };
 const t = i18n.t.bind(i18n);
+const HISTORY_DRAG_MIME = 'application/x-dream-history';
+const LEGACY_HISTORY_DRAG_MIME = ['application/x-tap', 'now-history'].join('');
+const FOLDER_INPUT_NODE_TYPE = 'folder-input';
+const FOR_LOOP_NODE_TYPE = 'for-loop';
+const LEGACY_FOLDER_LOOP_NODE_TYPE = 'folder-loop';
+const isForLoopNodeType = (type) => type === FOR_LOOP_NODE_TYPE || type === LEGACY_FOLDER_LOOP_NODE_TYPE;
+
+const migrateLegacyBrowserStorage = () => {
+    try {
+        const legacyPrefix = ['tap', 'now_'].join('');
+        const dreamPrefix = 'dream_';
+        const migrationFlag = `${dreamPrefix}legacy_storage_migrated`;
+        if (localStorage.getItem(migrationFlag) === '1') return;
+        Object.keys(localStorage).forEach((key) => {
+            if (!key.startsWith(legacyPrefix)) return;
+            const nextKey = `${dreamPrefix}${key.slice(legacyPrefix.length)}`;
+            if (localStorage.getItem(nextKey) === null) {
+                localStorage.setItem(nextKey, localStorage.getItem(key) || '');
+            }
+        });
+        localStorage.setItem(migrationFlag, '1');
+    } catch { }
+};
+
+migrateLegacyBrowserStorage();
 
 
 // --- MaskVisualFeedback 组件：蒙版视觉反馈层 ---
@@ -134,7 +159,8 @@ const MaskVisualFeedback = ({ canvasRef, isDrawing }) => {
 // --- V3.5.16: LocalImageManager - IndexedDB-based image storage ---
 // Replaces localStorage Base64 storage with IndexedDB for better performance and larger capacity
 const LocalImageManager = (() => {
-    const DB_NAME = 'tapnow_images_db';
+    const DB_NAME = 'dream_images_db';
+    const LEGACY_DB_NAME = ['tap', 'now_images_db'].join('');
     const DB_VERSION = 1;
     const STORE_NAME = 'images';
     let dbInstance = null;
@@ -176,6 +202,45 @@ const LocalImageManager = (() => {
 
         return dbInitPromise;
     };
+
+    const openLegacyDB = () => new Promise((resolve) => {
+        if (!window.indexedDB) {
+            resolve(null);
+            return;
+        }
+        const request = indexedDB.open(LEGACY_DB_NAME, DB_VERSION);
+        request.onerror = () => resolve(null);
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+    });
+
+    const readRecord = (db, id) => new Promise((resolve) => {
+        if (!db || !db.objectStoreNames.contains(STORE_NAME)) {
+            resolve(null);
+            return;
+        }
+        try {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => resolve(null);
+        } catch {
+            resolve(null);
+        }
+    });
+
+    const blobToDataUrl = (blob) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+    });
 
     // Generate unique ID for image
     const generateId = () => `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -245,38 +310,16 @@ const LocalImageManager = (() => {
         const db = await initDB();
         if (!db) return null;
 
-        return new Promise((resolve) => {
-            try {
-                const transaction = db.transaction([STORE_NAME], 'readonly');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.get(id);
-
-                request.onsuccess = () => {
-                    const record = request.result;
-                    if (record && record.blob) {
-                        // V3.7.32 Fix: Use FileReader to return Base64 avoiding blob:null security error in file:// protocol
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const base64 = reader.result;
-                            blobUrlCache.set(id, base64);
-                            resolve(base64);
-                        };
-                        reader.onerror = () => {
-                            console.error('[LocalImageManager] Failed to convert blob to base64');
-                            resolve(null);
-                        };
-                        reader.readAsDataURL(record.blob);
-                    } else {
-                        resolve(null);
-                    }
-                };
-
-                request.onerror = () => resolve(null);
-            } catch (err) {
-                console.error('[LocalImageManager] Get error:', err);
-                resolve(null);
-            }
-        });
+        let record = await readRecord(db, id);
+        if (!record?.blob) {
+            const legacyDb = await openLegacyDB();
+            record = await readRecord(legacyDb, id);
+            try { legacyDb?.close?.(); } catch { }
+        }
+        if (!record?.blob) return null;
+        const base64 = await blobToDataUrl(record.blob);
+        if (base64) blobUrlCache.set(id, base64);
+        return base64;
     };
 
     // Delete image from IndexedDB
@@ -940,7 +983,7 @@ const HistoryItem = memo(({
             selectedIndex
         };
         e.dataTransfer.effectAllowed = 'copy';
-        e.dataTransfer.setData('application/x-tapnow-history', JSON.stringify(payload));
+        e.dataTransfer.setData(HISTORY_DRAG_MIME, JSON.stringify(payload));
         e.dataTransfer.setData('text/uri-list', dragUrl);
         e.dataTransfer.setData('text/plain', dragUrl);
     };
@@ -1856,7 +1899,7 @@ const DEFAULT_API_CONFIGS = [
 const RATIOS = ['Auto', '1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '3:2', '2:3'];
 const GROK_VIDEO_RATIOS = ['3:2', '2:3', '1:1'];
 const VIDEO_RES_OPTIONS = ['1080P', '720P'];
-const PROMPT_LIBRARY_KEY = 'tapnow_prompt_library';
+const PROMPT_LIBRARY_KEY = 'dream_prompt_library';
 const GRID_PROMPT_TEXT = `基于我上传的这张参考图，生成一张九宫格（3x3 grid）布局的分镜脚本。请严格保持角色与参考图一致（Keep character strictly consistent），但在9个格子中展示该角色不同的动作、表情和拍摄角度（如正面、侧面、背面、特写等）。要求风格高度统一，形成一张完整的角色动态表（Character Sheet）。`;
 const UPSCALE_PROMPT_TEXT = `请对参考图片进行无损高清放大（Upscale）。请严格保持原图的构图、色彩、光影和所有细节元素不变，不要进行任何创造性的重绘或添加新内容。仅专注于提升分辨率、锐化边缘（Sharpening）和去除噪点（Denoising），实现像素级的高清修复。Best quality, 8k, masterpiece, highres, ultra detailed, sharp focus, image restoration, upscale, faithful to original.`;
 const STORYBOARD_PROMPT_TEXT = `you are a veteran Hollywood storyboard artist with years of experience. You have the ability to accurately analyze character features and scene characteristics based on images. Provide me with the most suitable camera angles and storyboards. Strictly base this on the uploaded character and scene images, while maintaining a consistent visual style.
@@ -2071,7 +2114,7 @@ const materializeStoryboardOutputFromSnapshot = (snapshot, currentShot) => {
 };
 const isStoryboardDebugEnabled = () => {
     try {
-        return localStorage.getItem('tapnow_debug_storyboard') === '1';
+        return localStorage.getItem('dream_debug_storyboard') === '1';
     } catch (e) {
         return false;
     }
@@ -2193,7 +2236,7 @@ const IMAGE_BATCH_MODE_STANDARD_BATCH = 'standard_batch';
 const IMAGE_NATIVE_MULTI_IMAGE_MODE_AUTO = 'auto';
 const IMAGE_NATIVE_MULTI_IMAGE_MODE_FORCE = 'force_native';
 const IMAGE_NATIVE_MULTI_IMAGE_MODE_DISABLE = 'disable_native';
-const NATIVE_MULTI_IMAGE_CAPABILITY_STORAGE_KEY = 'tapnow_native_multi_image_capabilities';
+const NATIVE_MULTI_IMAGE_CAPABILITY_STORAGE_KEY = 'dream_native_multi_image_capabilities';
 const NODE_IO_ENVELOPE_VERSION = '1.0';
 const TRANSPORT_HTTP_JSON = 'http-json';
 const TRANSPORT_HTTP_SSE = 'http-sse';
@@ -2453,8 +2496,8 @@ const isChatModelType = (type) => type === 'Chat' || type === 'ChatImage';
 const MAX_CUSTOM_PARAMS = 30;
 const DEFAULT_IMAGE_DISPATCH_INTERVAL_SECONDS = 2;
 const INTERNAL_CUSTOM_PARAM_NAMES = new Set([
-    'tapnow_image_concurrency',
-    'tapnow_concurrency',
+    'dream_image_concurrency',
+    'dream_concurrency',
     'image_concurrency'
 ]);
 const DEFAULT_STORYBOARD_SCRIPT_PROMPT = `你是一个分镜脚本分析专家。请将用户提供的脚本按镜头拆分，每个镜头生成一个简洁的画面描述提示词。
@@ -3965,11 +4008,11 @@ const getModelParams = (modelId, ratio, resolution) => {
     return { sizeStr: str, w, h };
 };
 
-const AUTOSAVE_LOCAL_KEY = 'tapnow_autosave';
-const AUTOSAVE_META_KEY = 'tapnow_autosave_meta';
-const AUTOSAVE_IDB_NAME = 'tapnow_autosave_db';
+const AUTOSAVE_LOCAL_KEY = 'dream_autosave';
+const AUTOSAVE_META_KEY = 'dream_autosave_meta';
+const AUTOSAVE_IDB_NAME = 'dream_autosave_db';
 const AUTOSAVE_IDB_STORE = 'autosave';
-const ASSET_BUNDLE_META_KEY = 'tapnow_asset_bundle_meta';
+const ASSET_BUNDLE_META_KEY = 'dream_asset_bundle_meta';
 
 let assetBundleMetaCache = null;
 const readAssetBundleMeta = () => {
@@ -4733,10 +4776,10 @@ const Lightbox = ({ item, onClose, onNavigate, onShotNavigate, onHistoryNavigate
     );
 };
 
-function TapnowApp() {
+function DreamApp() {
     const [theme, setTheme] = useState(() => {
         try {
-            return localStorage.getItem('tapnow_theme') || 'dark';
+            return localStorage.getItem('dream_theme') || 'dark';
         } catch (e) {
             return 'dark';
         }
@@ -4795,7 +4838,7 @@ function TapnowApp() {
 
     useEffect(() => {
         try {
-            localStorage.setItem('tapnow_theme', theme);
+            localStorage.setItem('dream_theme', theme);
         } catch (e) { }
         const root = document.documentElement;
         root.classList.remove('theme-dark', 'theme-light', 'theme-solarized');
@@ -4908,7 +4951,7 @@ function TapnowApp() {
                 return parsed.nodes || [];
             }
             // Compatible with legacy storage
-            const legacy = localStorage.getItem('tapnow_nodes');
+            const legacy = localStorage.getItem('dream_nodes');
             return legacy ? JSON.parse(legacy) : [];
         } catch (e) { return []; }
     });
@@ -4922,7 +4965,7 @@ function TapnowApp() {
                 return parsed.connections || [];
             }
             // Compatible with legacy storage
-            const legacy = localStorage.getItem('tapnow_connections');
+            const legacy = localStorage.getItem('dream_connections');
             return legacy ? JSON.parse(legacy) : [];
         } catch (e) { return []; }
     });
@@ -4946,7 +4989,7 @@ function TapnowApp() {
 
     // === V3.4.7: Undo/Redo 功能 (可配置步数) ===
     const [maxUndoSteps, setMaxUndoSteps] = useState(() => {
-        const saved = localStorage.getItem('tapnow_max_undo_steps');
+        const saved = localStorage.getItem('dream_max_undo_steps');
         return saved ? Math.min(30, Math.max(1, parseInt(saved) || 5)) : 5;
     });
     const [undoStack, setUndoStack] = useState([]); // { nodes, connections }[]
@@ -4965,23 +5008,23 @@ function TapnowApp() {
     const shotBatchMapRef = useRef(new Map()); // key: nodeId:shotId -> { batchId, batchOrder, taskIndex }
     const [batchQueueMode, setBatchQueueMode] = useState(() => {
         try {
-            return localStorage.getItem('tapnow_batch_queue_mode') || 'parallel';
+            return localStorage.getItem('dream_batch_queue_mode') || 'parallel';
         } catch (e) {
             return 'parallel';
         }
     });
     const [batchTick, setBatchTick] = useState(0); // Used to trigger next batch after cooldown
-    const [batchConcurrency, setBatchConcurrency] = useState(() => parseInt(localStorage.getItem('tapnow_batch_concurrency') || '1')); // Default 1
+    const [batchConcurrency, setBatchConcurrency] = useState(() => parseInt(localStorage.getItem('dream_batch_concurrency') || '1')); // Default 1
     const pendingStartsRef = useRef(new Set()); // Track items that are starting but not yet 'generating' in nodes
     const batchStateRef = useRef('idle'); // 'idle' | 'running' | 'cooling'
 
     // Save batch concurrency to localStorage
     useEffect(() => {
-        localStorage.setItem('tapnow_batch_concurrency', batchConcurrency);
+        localStorage.setItem('dream_batch_concurrency', batchConcurrency);
     }, [batchConcurrency]);
 
     useEffect(() => {
-        localStorage.setItem('tapnow_batch_queue_mode', batchQueueMode);
+        localStorage.setItem('dream_batch_queue_mode', batchQueueMode);
     }, [batchQueueMode]);
 
     // 保存当前状态到撤销栈
@@ -5337,7 +5380,7 @@ function TapnowApp() {
     };
 
     const [modelLibrary, setModelLibrary] = useState(() => {
-        const saved = localStorage.getItem('tapnow_model_library');
+        const saved = localStorage.getItem('dream_model_library');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -5354,7 +5397,7 @@ function TapnowApp() {
 });
     const collapsedLibraryStateLoadedRef = useRef(false);
     const [collapsedLibraryModels, setCollapsedLibraryModels] = useState(() => {
-        const saved = localStorage.getItem('tapnow_model_library_collapsed');
+        const saved = localStorage.getItem('dream_model_library_collapsed');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -5370,7 +5413,7 @@ function TapnowApp() {
     });
     useEffect(() => {
         try {
-            localStorage.setItem('tapnow_model_library', JSON.stringify(modelLibrary));
+            localStorage.setItem('dream_model_library', JSON.stringify(modelLibrary));
         } catch (e) {
             console.error('保存 modelLibrary 配置失败:', e);
         }
@@ -5396,7 +5439,7 @@ function TapnowApp() {
     useEffect(() => {
         try {
             const payload = Array.from(collapsedLibraryModels);
-            localStorage.setItem('tapnow_model_library_collapsed', JSON.stringify(payload));
+            localStorage.setItem('dream_model_library_collapsed', JSON.stringify(payload));
         } catch (e) {
             console.error('保存模型库折叠状态失败:', e);
         }
@@ -5459,7 +5502,7 @@ function TapnowApp() {
     }, [getNativeMultiImageCapabilityKey]);
 
     const [apiConfigs, setApiConfigs] = useState(() => {
-        const saved = localStorage.getItem('tapnow_api_configs');
+        const saved = localStorage.getItem('dream_api_configs');
 
         // V3.6.0: 如果有存量数据，直接使用（不再合并默认模型）
         if (saved) {
@@ -5514,7 +5557,7 @@ function TapnowApp() {
     // V3.4.18: 使用 _deleted 标记追踪删除的Provider
     const [providers, setProviders] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_providers');
+            const saved = localStorage.getItem('dream_providers');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 // 直接使用用户保存的数据，不再自动补充默认Provider
@@ -5530,7 +5573,7 @@ function TapnowApp() {
     // V3.3: 持久化 providers
     useEffect(() => {
         try {
-            localStorage.setItem('tapnow_providers', JSON.stringify(providers));
+            localStorage.setItem('dream_providers', JSON.stringify(providers));
         } catch (e) {
             console.error('保存 providers 配置失败:', e);
         }
@@ -5551,12 +5594,12 @@ function TapnowApp() {
         };
     }, [apiConfigs, providers]);
 
-    const [globalApiKey, setGlobalApiKey] = useState(() => localStorage.getItem('tapnow_global_key') || '');
+    const [globalApiKey, setGlobalApiKey] = useState(() => localStorage.getItem('dream_global_key') || '');
 
     // API 黑名单机制 (比照 Jimeng-api-tool 实现)
     const [apiBlacklist, setApiBlacklist] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_api_blacklist');
+            const saved = localStorage.getItem('dream_api_blacklist');
             if (!saved) return {};
             const parsed = JSON.parse(saved);
             const today = new Date().toDateString();
@@ -5571,7 +5614,7 @@ function TapnowApp() {
     // 持久化黑名单
     useEffect(() => {
         try {
-            localStorage.setItem('tapnow_api_blacklist', JSON.stringify({
+            localStorage.setItem('dream_api_blacklist', JSON.stringify({
                 date: new Date().toDateString(),
                 blacklist: apiBlacklist
             }));
@@ -5607,7 +5650,7 @@ function TapnowApp() {
     // V3.7.23: API 临时暂停列表（用于登录失效等可恢复错误，TTL 60分钟）
     const [apiSuspendList, setApiSuspendList] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_api_suspend');
+            const saved = localStorage.getItem('dream_api_suspend');
             if (!saved) return {};
             const parsed = JSON.parse(saved);
             const now = Date.now();
@@ -5621,7 +5664,7 @@ function TapnowApp() {
     // 持久化暂停列表
     useEffect(() => {
         try {
-            localStorage.setItem('tapnow_api_suspend', JSON.stringify(apiSuspendList));
+            localStorage.setItem('dream_api_suspend', JSON.stringify(apiSuspendList));
         } catch (e) { }
     }, [apiSuspendList]);
 
@@ -5659,7 +5702,7 @@ function TapnowApp() {
 
     // 即梦图生图使用本地文件设置（默认true，强制使用本地文件而不是URL）
     const [jimengUseLocalFile, setJimengUseLocalFile] = useState(() => {
-        const saved = localStorage.getItem('tapnow_jimeng_use_local_file');
+        const saved = localStorage.getItem('dream_jimeng_use_local_file');
         return saved !== null ? saved === 'true' : true; // 默认true
     });
 
@@ -5667,12 +5710,12 @@ function TapnowApp() {
     const [projectName, setProjectName] = useState(() => {
         try {
             // 如果没有保存的节点，说明是新项目，强制显示"未命名项目"
-            const savedNodes = localStorage.getItem('tapnow_nodes');
+            const savedNodes = localStorage.getItem('dream_nodes');
             if (!savedNodes || JSON.parse(savedNodes).length === 0) {
-                localStorage.removeItem('tapnow_project_name');
+                localStorage.removeItem('dream_project_name');
                 return '未命名项目';
             }
-            const saved = localStorage.getItem('tapnow_project_name');
+            const saved = localStorage.getItem('dream_project_name');
             return saved || '未命名项目';
         } catch (e) {
             return '未命名项目';
@@ -5695,13 +5738,13 @@ function TapnowApp() {
     // ultra: 极速 (缩略图质量 0.3)
     const [performanceMode, setPerformanceMode] = useState(() => {
         try {
-            const savedHistory = localStorage.getItem('tapnow_history_performance_mode');
+            const savedHistory = localStorage.getItem('dream_history_performance_mode');
             if (savedHistory !== null) {
                 if (savedHistory === 'true') return 'normal';
                 if (savedHistory === 'false') return 'off';
                 return savedHistory || 'off';
             }
-            return localStorage.getItem('tapnow_performance_mode') || 'off';
+            return localStorage.getItem('dream_performance_mode') || 'off';
         } catch (e) {
             return 'off';
         }
@@ -5709,7 +5752,7 @@ function TapnowApp() {
     // 全局性能模式（与历史面板独立）
     const [globalPerformanceMode, setGlobalPerformanceMode] = useState(() => {
         try {
-            return localStorage.getItem('tapnow_global_performance_mode') || 'off';
+            return localStorage.getItem('dream_global_performance_mode') || 'off';
         } catch (e) {
             return 'off';
         }
@@ -5717,16 +5760,16 @@ function TapnowApp() {
 
     // V2.6.1 Feature: 本地服务器 URL
     const [localServerUrl, setLocalServerUrl] = useState(() => {
-        return localStorage.getItem('tapnow_local_server_url') || 'http://127.0.0.1:9527';
+        return localStorage.getItem('dream_local_server_url') || 'http://127.0.0.1:9527';
     });
 
     // V2.6.1 Feature: 本地缓存服务器状态
     const [localCacheServerConnected, setLocalCacheServerConnected] = useState(false);
     const [localCacheEnabled, setLocalCacheEnabled] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_local_cache_enabled');
+            const saved = localStorage.getItem('dream_local_cache_enabled');
             if (saved !== null) return saved === 'true';
-            const legacy = localStorage.getItem('tapnow_show_local_cache_banner');
+            const legacy = localStorage.getItem('dream_show_local_cache_banner');
             return legacy === null ? true : legacy === 'true';
         } catch (e) {
             return true;
@@ -5734,14 +5777,14 @@ function TapnowApp() {
     });
     const [cacheRedownloadOnEnable, setCacheRedownloadOnEnable] = useState(() => {
         try {
-            return localStorage.getItem('tapnow_cache_redownload_on_enable') === 'true';
+            return localStorage.getItem('dream_cache_redownload_on_enable') === 'true';
         } catch (e) {
             return false;
         }
     });
     const [saveHistoryAssets, setSaveHistoryAssets] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_save_history_assets');
+            const saved = localStorage.getItem('dream_save_history_assets');
             if (saved === null) return true;
             return saved === 'true';
         } catch (e) {
@@ -5757,7 +5800,7 @@ function TapnowApp() {
     };
     const [historySaveLimit, setHistorySaveLimit] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_history_limit');
+            const saved = localStorage.getItem('dream_history_limit');
             if (saved === null) return 80;
             return normalizeHistorySaveLimit(saved);
         } catch (e) {
@@ -5931,8 +5974,8 @@ function TapnowApp() {
         if (!base || !expectedId) return '';
         if (!localCacheIndexReadyRef.current) return '';
         const segments = [
-            preferHistoryPath ? 'history' : '.tapnow_cache/history',
-            preferHistoryPath ? '.tapnow_cache/history' : 'history'
+            preferHistoryPath ? 'history' : '.dream_cache/history',
+            preferHistoryPath ? '.dream_cache/history' : 'history'
         ];
         const candidates = [];
         segments.forEach((seg) => {
@@ -5978,15 +6021,15 @@ function TapnowApp() {
 
     // 持久化性能模式和本地服务器设置
     useEffect(() => {
-        localStorage.setItem('tapnow_performance_mode', performanceMode);
-        localStorage.setItem('tapnow_history_performance_mode', performanceMode);
+        localStorage.setItem('dream_performance_mode', performanceMode);
+        localStorage.setItem('dream_history_performance_mode', performanceMode);
     }, [performanceMode]);
     useEffect(() => {
-        localStorage.setItem('tapnow_save_history_assets', String(saveHistoryAssets));
+        localStorage.setItem('dream_save_history_assets', String(saveHistoryAssets));
     }, [saveHistoryAssets]);
     useEffect(() => {
         try {
-            localStorage.setItem('tapnow_history_limit', String(historySaveLimit));
+            localStorage.setItem('dream_history_limit', String(historySaveLimit));
         } catch (e) { }
     }, [historySaveLimit]);
 
@@ -6034,17 +6077,17 @@ function TapnowApp() {
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('tapnow_global_performance_mode', globalPerformanceMode);
+        localStorage.setItem('dream_global_performance_mode', globalPerformanceMode);
     }, [globalPerformanceMode]);
 
     useEffect(() => {
-        localStorage.setItem('tapnow_local_server_url', localServerUrl);
+        localStorage.setItem('dream_local_server_url', localServerUrl);
     }, [localServerUrl]);
     useEffect(() => {
-        try { localStorage.setItem('tapnow_local_cache_enabled', String(localCacheEnabled)); } catch (e) { }
+        try { localStorage.setItem('dream_local_cache_enabled', String(localCacheEnabled)); } catch (e) { }
     }, [localCacheEnabled]);
     useEffect(() => {
-        try { localStorage.setItem('tapnow_cache_redownload_on_enable', String(cacheRedownloadOnEnable)); } catch (e) { }
+        try { localStorage.setItem('dream_cache_redownload_on_enable', String(cacheRedownloadOnEnable)); } catch (e) { }
     }, [cacheRedownloadOnEnable]);
     useEffect(() => {
         if (!localCacheActive) {
@@ -6142,7 +6185,7 @@ function TapnowApp() {
 
     const [history, setHistory] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_history');
+            const saved = localStorage.getItem('dream_history');
             if (!saved) return [];
             const parsed = JSON.parse(saved);
             // 检查是否有需要重新切割的Midjourney图片 + 修复 blob/asset 残留
@@ -6210,7 +6253,7 @@ function TapnowApp() {
     // V3.4.12: 自动保存配置
     const [autoSaveConfig, setAutoSaveConfig] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_auto_save_config');
+            const saved = localStorage.getItem('dream_auto_save_config');
             return saved ? JSON.parse(saved) : { enabled: false, interval: 5, folderPath: '' };
         } catch (e) {
             return { enabled: false, interval: 5, folderPath: '' };
@@ -6222,7 +6265,7 @@ function TapnowApp() {
 
     const [chatSessions, setChatSessions] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_chat_sessions');
+            const saved = localStorage.getItem('dream_chat_sessions');
             return saved ? JSON.parse(saved) : [{ id: 'default', title: t('新对话'), messages: [] }];
         } catch (e) {
             return [{ id: 'default', title: t('新对话'), messages: [] }];
@@ -6234,7 +6277,7 @@ function TapnowApp() {
     const [chatWidth, setChatWidth] = useState(400);
     const [chatFiles, setChatFiles] = useState([]);
     const [chatModel, setChatModel] = useState(() => {
-        try { return localStorage.getItem('tapnow_chat_model') || 'gemini-3-pro'; } catch { return 'gemini-3-pro'; }
+        try { return localStorage.getItem('dream_chat_model') || 'gemini-3-pro'; } catch { return 'gemini-3-pro'; }
     });
     const [chatModelDropdownOpen, setChatModelDropdownOpen] = useState(false);
     const [chatHoveredProvider, setChatHoveredProvider] = useState(null);
@@ -6242,7 +6285,7 @@ function TapnowApp() {
 
     // V3.7.24: 保存聊天模型选择到 localStorage
     useEffect(() => {
-        try { localStorage.setItem('tapnow_chat_model', chatModel); } catch { }
+        try { localStorage.setItem('dream_chat_model', chatModel); } catch { }
     }, [chatModel]);
 
     const [lightboxItem, setLightboxItem] = useState(null);
@@ -6427,7 +6470,7 @@ function TapnowApp() {
     const [charactersOpen, setCharactersOpen] = useState(false);
     const [characterLibrary, setCharacterLibrary] = useState(() => {
         try {
-            const saved = localStorage.getItem('tapnow_characters');
+            const saved = localStorage.getItem('dream_characters');
             return saved ? JSON.parse(saved) : [];
         } catch (e) {
             console.error('加载角色库失败:', e);
@@ -6459,28 +6502,28 @@ function TapnowApp() {
     const [nodeTimers, setNodeTimers] = useState({});
     // V3.4.8: 记住上次使用的模型
     const [lastUsedImageModel, setLastUsedImageModel] = useState(() => {
-        try { return localStorage.getItem('tapnow_last_image_model') || 'nano-banana'; } catch { return 'nano-banana'; }
+        try { return localStorage.getItem('dream_last_image_model') || 'nano-banana'; } catch { return 'nano-banana'; }
     });
     const [lastUsedVideoModel, setLastUsedVideoModel] = useState(() => {
-        try { return localStorage.getItem('tapnow_last_video_model') || 'sora-2'; } catch { return 'sora-2'; }
+        try { return localStorage.getItem('dream_last_video_model') || 'sora-2'; } catch { return 'sora-2'; }
     });
     const [lastUsedRatio, setLastUsedRatio] = useState(() => {
-        try { return localStorage.getItem('tapnow_last_ratio') || '1:1'; } catch { return '1:1'; }
+        try { return localStorage.getItem('dream_last_ratio') || '1:1'; } catch { return '1:1'; }
     });
     const [lastUsedImageResolution, setLastUsedImageResolution] = useState(() => {
-        try { return normalizeImageResolution(localStorage.getItem('tapnow_last_image_res') || '2K'); } catch { return '2K'; }
+        try { return normalizeImageResolution(localStorage.getItem('dream_last_image_res') || '2K'); } catch { return '2K'; }
     });
     const [lastUsedVideoResolution, setLastUsedVideoResolution] = useState(() => {
-        try { return normalizeVideoResolution(localStorage.getItem('tapnow_last_video_res') || '720P'); } catch { return '720P'; }
+        try { return normalizeVideoResolution(localStorage.getItem('dream_last_video_res') || '720P'); } catch { return '720P'; }
     });
     const [lastUsedSegmentDuration, setLastUsedSegmentDuration] = useState(() => {
-        try { return localStorage.getItem('tapnow_last_segment_duration') || '3'; } catch { return '3'; }
+        try { return localStorage.getItem('dream_last_segment_duration') || '3'; } catch { return '3'; }
     });
     const [lastUsedAnalyzeModel, setLastUsedAnalyzeModel] = useState(() => {
-        try { return localStorage.getItem('tapnow_last_analyze_model') || 'gemini-3-pro'; } catch { return 'gemini-3-pro'; }
+        try { return localStorage.getItem('dream_last_analyze_model') || 'gemini-3-pro'; } catch { return 'gemini-3-pro'; }
     });
     const [lastUsedExtractModel, setLastUsedExtractModel] = useState(() => {
-        try { return localStorage.getItem('tapnow_last_extract_model') || ''; } catch { return ''; }
+        try { return localStorage.getItem('dream_last_extract_model') || ''; } catch { return ''; }
     });
 
     // V2.6.1 Feature: 本地缓存服务器连接检查
@@ -6942,8 +6985,8 @@ function TapnowApp() {
         const looksLikeLocalRuntimeUrl = next.includes('127.0.0.1')
             || next.includes('localhost')
             || next.includes('/proxy?url=')
-            || next.includes('/file/.tapnow_cache/')
-            || next.includes('.tapnow_cache\\');
+            || next.includes('/file/.dream_cache/')
+            || next.includes('.dream_cache\\');
         if (!looksLikeLocalRuntimeUrl) {
             sourceReferenceResolveCacheRef.current.set(value, next);
             return next;
@@ -6999,8 +7042,8 @@ function TapnowApp() {
             const maybeLocalRuntime = value.includes('127.0.0.1')
                 || value.includes('localhost')
                 || value.includes('/proxy?url=')
-                || value.includes('/file/.tapnow_cache/')
-                || value.includes('.tapnow_cache\\');
+                || value.includes('/file/.dream_cache/')
+                || value.includes('.dream_cache\\');
             if (!maybeLocalRuntime) return value;
             return resolveSourceReferenceUrl(value);
         }
@@ -8071,7 +8114,7 @@ function TapnowApp() {
             };
             try {
                 const preferHistoryPath = !!(localServerConfig.imageSavePath || localServerConfig.videoSavePath);
-                const expectedSegment = preferHistoryPath ? '/file/history/' : '/file/.tapnow_cache/history/';
+                const expectedSegment = preferHistoryPath ? '/file/history/' : '/file/.dream_cache/history/';
                 const localBase = (localServerUrl || '').trim().replace(/\/+$/, '');
                 if (!localCacheIndexReadyRef.current) {
                     await refreshLocalCacheFileIndex({ silent: true });
@@ -8290,8 +8333,8 @@ function TapnowApp() {
             try {
                 const localBase = (localServerUrl || '').trim().replace(/\/+$/, '');
                 const savePathRaw = localServerConfig.videoSavePath || localServerConfig.savePath || '';
-                const preferHistoryPath = !!(savePathRaw && !String(savePathRaw).includes('.tapnow_cache'));
-                const expectedSegment = preferHistoryPath ? '/file/history/' : '/file/.tapnow_cache/history/';
+                const preferHistoryPath = !!(savePathRaw && !String(savePathRaw).includes('.dream_cache'));
+                const expectedSegment = preferHistoryPath ? '/file/history/' : '/file/.dream_cache/history/';
                 if (!localCacheIndexReadyRef.current) {
                     await refreshLocalCacheFileIndex({ silent: true });
                 }
@@ -8376,11 +8419,13 @@ function TapnowApp() {
     const chatEndRef = useRef(null);
     const chatInputRef = useRef(null);
     const nodesRef = useRef(nodes);
+    const historyRef = useRef(history);
     const selectedNodeIdRef = useRef(selectedNodeId);
     const selectedNodeIdsRef = useRef(selectedNodeIds); // 存储多选节点ID的ref
     const connectionsRef = useRef(connections);
     const frameSelectionRef = useRef({});
     const copiedNodesRef = useRef(null); // 存储复制的节点数据
+    const folderLoopRunRef = useRef(new Map());
     const isPanningRef = useRef(false); // 使用ref跟踪画布拖动状态，避免状态丢失
     const panRafRef = useRef(null); // 画布拖动的 requestAnimationFrame
     const pendingPanUpdate = useRef(null); // 待处理的画布拖动更新
@@ -8389,7 +8434,7 @@ function TapnowApp() {
 
     useEffect(() => {
         // 保存配置到 localStorage（不再过滤任何模型）
-        localStorage.setItem('tapnow_api_configs', JSON.stringify(apiConfigs));
+        localStorage.setItem('dream_api_configs', JSON.stringify(apiConfigs));
     }, [apiConfigs]);
 
     // --- MOVED HELPERS to fix ReferenceError ---
@@ -8460,7 +8505,7 @@ function TapnowApp() {
     // 保存角色库到 localStorage（使用防抖优化）
     const debouncedSaveCharacters = useMemo(() => debounce((charactersToSave) => {
         try {
-            localStorage.setItem('tapnow_characters', JSON.stringify(charactersToSave));
+            localStorage.setItem('dream_characters', JSON.stringify(charactersToSave));
         } catch (e) {
             console.error('保存角色库失败:', e);
         }
@@ -8783,7 +8828,7 @@ function TapnowApp() {
     // localStorage 写入防抖函数
     const debouncedSaveHistory = useMemo(() => debounce((historyToSave) => {
         try {
-            localStorage.setItem('tapnow_history', JSON.stringify(historyToSave));
+            localStorage.setItem('dream_history', JSON.stringify(historyToSave));
         } catch (e) {
             console.error('保存历史记录失败（可能超出存储配额）:', e);
             // 如果存储失败，尝试减少数据量
@@ -8804,7 +8849,7 @@ function TapnowApp() {
                     mjRatio: item.mjRatio,
                     mjNeedsSplit: item.mjNeedsSplit
                 }));
-                localStorage.setItem('tapnow_history', JSON.stringify(reduced));
+                localStorage.setItem('dream_history', JSON.stringify(reduced));
             } catch (e2) {
                 console.error('减少数据后保存也失败:', e2);
                 try {
@@ -8831,7 +8876,7 @@ function TapnowApp() {
             const historyToSave = historyItems
                 .slice(0, historyLimit)
                 .map((item) => compactHistoryItemForStorage(item));
-            localStorage.setItem('tapnow_history', JSON.stringify(historyToSave));
+            localStorage.setItem('dream_history', JSON.stringify(historyToSave));
             return true;
         } catch (e) {
             console.error('立即保存历史记录失败:', e);
@@ -8853,7 +8898,7 @@ function TapnowApp() {
                     mjRatio: item.mjRatio,
                     mjNeedsSplit: item.mjNeedsSplit
                 }));
-                localStorage.setItem('tapnow_history', JSON.stringify(reduced));
+                localStorage.setItem('dream_history', JSON.stringify(reduced));
                 return true;
             } catch (e2) {
                 console.error('立即保存历史记录失败（降级后）:', e2);
@@ -8863,7 +8908,7 @@ function TapnowApp() {
     };
 
     const debouncedSaveGlobalKey = useMemo(() => debounce((key) => {
-        localStorage.setItem('tapnow_global_key', key);
+        localStorage.setItem('dream_global_key', key);
     }, 1000), []);
 
     useEffect(() => { debouncedSaveGlobalKey(globalApiKey); }, [globalApiKey, debouncedSaveGlobalKey]);
@@ -8914,16 +8959,17 @@ function TapnowApp() {
         }
     }, [history, debouncedSaveHistory]);
     const debouncedSaveChatSessions = useMemo(() => debounce((sessions) => {
-        try { localStorage.setItem('tapnow_chat_sessions', JSON.stringify(sessions)); } catch (e) { }
+        try { localStorage.setItem('dream_chat_sessions', JSON.stringify(sessions)); } catch (e) { }
     }, 1000), []);
     useEffect(() => { debouncedSaveChatSessions(chatSessions); }, [chatSessions, debouncedSaveChatSessions]);
     useEffect(() => {
         nodesRef.current = nodes;
+        historyRef.current = history;
         selectedNodeIdRef.current = selectedNodeId;
         selectedNodeIdsRef.current = selectedNodeIds; // 同步更新多选节点ref
         connectionsRef.current = connections;
         isSelectingRef.current = isSelecting; // 同步更新框选状态ref
-    }, [nodes, selectedNodeId, selectedNodeIds, connections, isSelecting]);
+    }, [nodes, history, selectedNodeId, selectedNodeIds, connections, isSelecting]);
     useEffect(() => {
         const aliveIds = new Set(nodes.map((node) => node.id));
         setNodeSelectionPriority((prev) => {
@@ -9457,7 +9503,7 @@ function TapnowApp() {
     }, [apiConfigs, providers, resolveApiConfig]);
 
     const getFirstEnabledModelKey = useCallback((mode = 'image') => {
-        const storageKey = mode === 'image' ? 'tapnow_last_image_model' : 'tapnow_last_video_model';
+        const storageKey = mode === 'image' ? 'dream_last_image_model' : 'dream_last_video_model';
         const preferredFromState = mode === 'image' ? lastUsedImageModel : lastUsedVideoModel;
         let preferredStored = '';
         try {
@@ -9951,8 +9997,8 @@ function TapnowApp() {
                 const baseLabel = [resolvedProjectTitle, item.prompt].filter(Boolean).join('-')
                     || getFilenameFromUrl(url)
                     || item.name
-                    || 'tapnow';
-                let baseName = sanitizeCacheId(baseLabel) || 'tapnow';
+                    || 'dream';
+                let baseName = sanitizeCacheId(baseLabel) || 'dream';
                 baseName = baseName.slice(0, 80);
                 const nextIndex = (nameCounters.get(baseName) || 0) + 1;
                 nameCounters.set(baseName, nextIndex);
@@ -11109,6 +11155,13 @@ function TapnowApp() {
             } else if (Array.isArray(sourceNode.frames) && sourceNode.frames.length > 0) {
                 addMedia(sourceNode.frames?.[0]?.url, 'image');
             }
+        } else if (isForLoopNodeType(sourceNode.type)) {
+            const files = Array.isArray(sourceNode.settings?.files) ? sourceNode.settings.files : [];
+            if (files.length > 0) {
+                const rawIndex = Number(sourceNode.settings?.currentIndex || 0);
+                const currentIndex = Math.max(0, Math.min(Number.isFinite(rawIndex) ? rawIndex : 0, files.length - 1));
+                addMedia(files[currentIndex]?.url, 'image');
+            }
         } else if (sourceNode.type === 'input-image' || sourceNode.type === 'gen-image' || sourceNode.type === 'preview') {
             if (sourceNode.content) {
                 const mediaType = sourceNode.type === 'preview'
@@ -11338,7 +11391,7 @@ function TapnowApp() {
             sourceNodeId = historyItem?.sourceNodeId;
         }
         if (!sourceNodeId) {
-            console.warn('[Tapnow] updatePreviewFromTask: 未找到 sourceNodeId for taskId:', taskId);
+            console.warn('[Dream] updatePreviewFromTask: 未找到 sourceNodeId for taskId:', taskId);
             return;
         }
 
@@ -11402,7 +11455,7 @@ function TapnowApp() {
             const filtered = prev.filter(item => item.id !== id);
             // 立即保存到 localStorage，不等待防抖
             try {
-                localStorage.setItem('tapnow_history', JSON.stringify(filtered));
+                localStorage.setItem('dream_history', JSON.stringify(filtered));
             } catch (e) {
                 console.error('立即保存历史记录失败:', e);
             }
@@ -13441,7 +13494,7 @@ function TapnowApp() {
     };
 
     const getHistoryDragPayload = (e) => {
-        const rawPayload = e.dataTransfer.getData('application/x-tapnow-history');
+        const rawPayload = e.dataTransfer.getData(HISTORY_DRAG_MIME) || e.dataTransfer.getData(LEGACY_HISTORY_DRAG_MIME);
         if (!rawPayload) return null;
         try {
             return JSON.parse(rawPayload);
@@ -13458,7 +13511,7 @@ function TapnowApp() {
         const rawName = payload.id || payload.modelName || 'model';
         const safeName = String(rawName).replace(/[^\w.-]+/g, '_');
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const fileName = `tapnow-model-${safeName}.json`;
+        const fileName = `dream-model-${safeName}.json`;
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = fileName;
@@ -13471,7 +13524,7 @@ function TapnowApp() {
         if (!normalized) return;
         const safeName = String(normalized.id || 'model').replace(/[^\w.-]+/g, '_');
         const blob = new Blob([JSON.stringify(normalized, null, 2)], { type: 'application/json' });
-        const fileName = `tapnow-model-library-${safeName}.json`;
+        const fileName = `dream-model-library-${safeName}.json`;
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = fileName;
@@ -14239,7 +14292,7 @@ function TapnowApp() {
                 if (status === 'SUCCESS' || status === 'succeeded' || status === 'FINISHED' || status === 'completed') {
                     const videoUrl = data?.data?.output || data?.output || data?.data?.video_url || data?.video_url || data?.data?.data?.output;
                     if (!videoUrl) {
-                        console.warn('[Tapnow] Veo: 任务成功但未找到视频URL', data);
+                        console.warn('[Dream] Veo: 任务成功但未找到视频URL', data);
                         setHistory((prev) => prev.map((hItem) => hItem.id === taskId ? { ...hItem, status: 'failed', errorMsg: '未找到视频URL' } : hItem));
                         return;
                     }
@@ -14269,9 +14322,9 @@ function TapnowApp() {
                                         const actualRatio = actualW / actualH;
                                         const expectedRatio = 16 / 9;
                                         if (Math.abs(actualRatio - expectedRatio) > 0.1) {
-                                            console.warn(`[Tapnow] Veo: 视频实际比例 ${actualRatio.toFixed(2)} 不匹配请求的 16:9 (${expectedRatio.toFixed(2)})，后端返回了错误的比例！`);
-                                            console.warn(`[Tapnow] Veo: 实际尺寸: ${actualW}x${actualH}, 请求比例: 16:9`);
-                                            console.warn(`[Tapnow] Veo: 强制使用请求的 16:9 比例，调整尺寸为: ${w}x${Math.round(w / (16 / 9))}`);
+                                            console.warn(`[Dream] Veo: 视频实际比例 ${actualRatio.toFixed(2)} 不匹配请求的 16:9 (${expectedRatio.toFixed(2)})，后端返回了错误的比例！`);
+                                            console.warn(`[Dream] Veo: 实际尺寸: ${actualW}x${actualH}, 请求比例: 16:9`);
+                                            console.warn(`[Dream] Veo: 强制使用请求的 16:9 比例，调整尺寸为: ${w}x${Math.round(w / (16 / 9))}`);
                                             // 如果后端返回了错误的比例，强制使用请求的比例
                                             finalW = w;
                                             finalH = Math.round(w / (16 / 9));
@@ -14283,9 +14336,9 @@ function TapnowApp() {
                                         const actualRatio = actualW / actualH;
                                         const expectedRatio = 9 / 16;
                                         if (Math.abs(actualRatio - expectedRatio) > 0.1) {
-                                            console.warn(`[Tapnow] Veo: 视频实际比例 ${actualRatio.toFixed(2)} 不匹配请求的 9:16 (${expectedRatio.toFixed(2)})，后端返回了错误的比例！`);
-                                            console.warn(`[Tapnow] Veo: 实际尺寸: ${actualW}x${actualH}, 请求比例: 9:16`);
-                                            console.warn(`[Tapnow] Veo: 强制使用请求的 9:16 比例，调整尺寸为: ${Math.round(h * (9 / 16))}x${h}`);
+                                            console.warn(`[Dream] Veo: 视频实际比例 ${actualRatio.toFixed(2)} 不匹配请求的 9:16 (${expectedRatio.toFixed(2)})，后端返回了错误的比例！`);
+                                            console.warn(`[Dream] Veo: 实际尺寸: ${actualW}x${actualH}, 请求比例: 9:16`);
+                                            console.warn(`[Dream] Veo: 强制使用请求的 9:16 比例，调整尺寸为: ${Math.round(h * (9 / 16))}x${h}`);
                                             // 如果后端返回了错误的比例，强制使用请求的比例
                                             finalW = Math.round(h * (9 / 16));
                                             finalH = h;
@@ -14328,7 +14381,7 @@ function TapnowApp() {
                                     }
                                 }
                             } catch (e) {
-                                console.warn('[Tapnow] Veo: 无法获取视频实际尺寸，使用请求尺寸', e);
+                                console.warn('[Dream] Veo: 无法获取视频实际尺寸，使用请求尺寸', e);
                                 // 如果无法获取实际尺寸，使用请求的尺寸并根据 aspect_ratio 调整
                                 let fallbackW = w, fallbackH = h;
                                 if (originalRatio === '16:9') {
@@ -14390,7 +14443,7 @@ function TapnowApp() {
                             errorMsg = failReason || errorMsg;
                         }
                     }
-                    console.error('[Tapnow] Veo: 任务失败', { status, failReason, errorMsg });
+                    console.error('[Dream] Veo: 任务失败', { status, failReason, errorMsg });
                     setHistory((prev) => prev.map((hItem) => hItem.id === taskId ? { ...hItem, status: 'failed', errorMsg } : hItem));
 
                     // V3.7.33: Save duration even on failure for storyboard
@@ -14500,7 +14553,7 @@ function TapnowApp() {
                 try {
                     data = JSON.parse(text);
                 } catch (err) {
-                    console.error('[Tapnow] Sora/Grok Poll JSON 解析失败:', err, text);
+                    console.error('[Dream] Sora/Grok Poll JSON 解析失败:', err, text);
                     setTimeout(() => pollSoraJob(jobId, taskId, baseUrl, apiKey, w, h, modelId, attempt + 1), delayMs);
                     return;
                 }
@@ -14539,7 +14592,7 @@ function TapnowApp() {
                                     updatePreviewFromTask(taskId, videoUrl, 'video', updatedItem.sourceNodeId);
                                 }, 0);
                             } else {
-                                console.warn('[Tapnow] Sora: 未找到 sourceNodeId', { taskId, updatedItem });
+                                console.warn('[Dream] Sora: 未找到 sourceNodeId', { taskId, updatedItem });
                             }
                         }
                         return updated;
@@ -14571,7 +14624,7 @@ function TapnowApp() {
                 setTimeout(() => pollSoraJob(jobId, taskId, baseUrl, apiKey, w, h, modelId, attempt + 1), delayMs);
             })
             .catch(err => {
-                console.error('[Tapnow] Sora/Grok Poll 请求失败:', err);
+                console.error('[Dream] Sora/Grok Poll 请求失败:', err);
                 // 如果是网络错误，继续重试；如果是其他错误，标记为失败
                 if (attempt < maxAttempts - 5) {
                     // 前75次尝试继续重试
@@ -15886,7 +15939,7 @@ function TapnowApp() {
                                         updatePreviewFromTask(taskId, imageUrl, 'image', sourceNodeIdForPreview);
                                     }, 0);
                                 } else {
-                                    console.warn('[Tapnow] Midjourney: 未找到 sourceNodeId，无法更新预览窗口', { taskId, hItem });
+                                    console.warn('[Dream] Midjourney: 未找到 sourceNodeId，无法更新预览窗口', { taskId, hItem });
                                 }
 
                                 // 延迟切割，确保UI先更新显示原图，避免白屏
@@ -15984,7 +16037,7 @@ function TapnowApp() {
                                     updatePreviewFromTask(taskId, imageUrl, 'image', hItem.sourceNodeId);
                                 }
                             } else {
-                                console.warn('[Tapnow] 图片生成: 未找到 sourceNodeId', { taskId, hItem });
+                                console.warn('[Dream] 图片生成: 未找到 sourceNodeId', { taskId, hItem });
                             }
 
                             // 计算并保存用时
@@ -16011,7 +16064,7 @@ function TapnowApp() {
                 setTimeout(() => pollMidjourneyJob(jobId, taskId, baseUrl, apiKey, mjMode, w, h, attempt + 1), delayMs);
             })
             .catch((err) => {
-                console.error(`[Tapnow] Midjourney Poll Fetch Error for task ${taskId}:`, err);
+                console.error(`[Dream] Midjourney Poll Fetch Error for task ${taskId}:`, err);
                 setHistory((prev) => prev.map((hItem) =>
                     hItem.id === taskId
                         ? { ...hItem, status: 'failed', errorMsg: `轮询请求失败: ${err.message}` }
@@ -18766,7 +18819,7 @@ function TapnowApp() {
                                     updatePreviewFromTask(taskId, immediateUrl, 'video', updatedItem.sourceNodeId);
                                 }, 0);
                             } else {
-                                console.warn('[Tapnow] 视频立即返回: 未找到 sourceNodeId', { taskId, updatedItem });
+                                console.warn('[Dream] 视频立即返回: 未找到 sourceNodeId', { taskId, updatedItem });
                             }
                         }
                         return updated;
@@ -18891,10 +18944,10 @@ function TapnowApp() {
                     if (!errorMsg.includes('即梦API代理服务缺少必要模块') && !errorMsg.includes('❌')) {
                         // 提取原始错误信息（去掉可能的重复前缀）
                         const originalError = errorMsg.replace(/后端服务错误[：:].*?错误详情[：:]/g, '').trim();
-                        errorMsg = `❌ 即梦API代理服务缺少必要模块\n\n错误：${originalError} \n\n🔧 解决方案：\n1.停止jimeng - api.exe并重新下载最新版本\n2.或使用Docker：docker pull ghcr.io / iptag / jimeng - api: latest`;
+                        errorMsg = `❌ 即梦API代理服务缺少必要模块\n\n错误：${originalError} \n\n🔧 解决方案：\n停止 jimeng-api.exe，并重新下载最新版后再启动`;
                     } else if (!errorMsg.includes('🔧')) {
                         // 如果已经有基本错误信息但没有解决方案，添加解决方案
-                        errorMsg = errorMsg + '\n\n🔧 解决方案：\n1. 停止jimeng-api.exe并重新下载最新版本\n2. 或使用Docker：docker pull ghcr.io/iptag/jimeng-api:latest';
+                        errorMsg = errorMsg + '\n\n🔧 解决方案：\n停止 jimeng-api.exe，并重新下载最新版后再启动';
                     }
                 }
             } catch (e) {
@@ -18903,7 +18956,7 @@ function TapnowApp() {
                 if (errorMsg.includes('Cannot find module') || errorMsg.includes('octetstream') || errorMsg.includes('MODULE_NOT_FOUND')) {
                     // 检查是否已经包含优化后的错误信息
                     if (!errorMsg.includes('即梦API代理服务缺少必要模块') && !errorMsg.includes('❌')) {
-                        errorMsg = `❌ 即梦API代理服务缺少必要模块\n\n🔧 解决方案：\n1.停止jimeng - api.exe并重新下载最新版本\n2.或使用Docker：docker pull ghcr.io / iptag / jimeng - api: latest`;
+                        errorMsg = `❌ 即梦API代理服务缺少必要模块\n\n🔧 解决方案：\n停止 jimeng-api.exe，并重新下载最新版后再启动`;
                     }
                 }
             }
@@ -18995,6 +19048,241 @@ function TapnowApp() {
         const blob = await getBlobFromUrl(resolvedUrl, { useProxy });
         return await blobToDataURL(blob);
     };
+
+    const waitForFolderLoopTask = useCallback((taskId, timeoutMs = 1000 * 60 * 45) => {
+        const startedAt = Date.now();
+        let sawTask = false;
+        return new Promise((resolve) => {
+            const timer = window.setInterval(() => {
+                const item = (historyRef.current || []).find((entry) => entry.id === taskId);
+                if (item) sawTask = true;
+                if (item && !['generating', 'queued', 'running'].includes(item.status)) {
+                    window.clearInterval(timer);
+                    resolve(item);
+                    return;
+                }
+                const elapsed = Date.now() - startedAt;
+                if (!sawTask && elapsed > 5000) {
+                    window.clearInterval(timer);
+                    resolve({ id: taskId, status: 'failed', errorMsg: '下游任务未启动' });
+                    return;
+                }
+                if (elapsed > timeoutMs) {
+                    window.clearInterval(timer);
+                    resolve({ id: taskId, status: 'failed', errorMsg: 'For 循环等待超时' });
+                }
+            }, 1000);
+        });
+    }, []);
+
+    const getFolderLoopTargetNode = useCallback((nodeId) => {
+        const conns = (connectionsRef.current || []).filter((conn) => conn.from === nodeId);
+        for (const conn of conns) {
+            const target = (nodesRef.current || []).find((n) => n.id === conn.to);
+            if (target && (target.type === 'gen-image' || target.type === 'gen-video')) return target;
+        }
+        return null;
+    }, []);
+
+    const getFolderLoopInputFolder = useCallback((nodeId) => {
+        const conns = (connectionsRef.current || []).filter((conn) => conn.to === nodeId);
+        for (const conn of conns) {
+            const source = (nodesRef.current || []).find((n) => n.id === conn.from);
+            if (source?.type !== FOLDER_INPUT_NODE_TYPE) continue;
+            const folderPath = String(source.settings?.folderPath || source.content || '').trim();
+            if (folderPath) {
+                return { folderPath, sourceNodeId: source.id, sourceNode: source };
+            }
+        }
+        const node = (nodesRef.current || []).find((n) => n.id === nodeId);
+        const fallbackPath = String(node?.settings?.folderPath || '').trim();
+        return { folderPath: fallbackPath, sourceNodeId: '', sourceNode: null };
+    }, []);
+
+    const scanFolderLoopNode = useCallback(async (nodeId) => {
+        const node = (nodesRef.current || []).find((n) => n.id === nodeId);
+        const { folderPath, sourceNodeId } = getFolderLoopInputFolder(nodeId);
+        const baseUrl = (node?.settings?.serverUrl || localServerUrl || '').trim().replace(/\/+$/, '');
+        if (!folderPath) {
+            showToast('请先连接选择文件夹节点或输入备用路径', 'warning');
+            return [];
+        }
+        if (!baseUrl) {
+            showToast('本地服务地址为空', 'error');
+            return [];
+        }
+        updateNodeSettings(nodeId, { status: 'scanning', errors: [] });
+        try {
+            const res = await fetch(`${baseUrl}/folder-loop/scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: folderPath })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data?.success === false) {
+                throw new Error(data?.error || `HTTP ${res.status}`);
+            }
+            const files = Array.isArray(data.files) ? data.files : [];
+            updateNodeSettings(nodeId, {
+                files,
+                scanId: data.scan_id || '',
+                basePath: data.base_path || folderPath,
+                folderPath,
+                sourceFolderNodeId: sourceNodeId,
+                currentIndex: 0,
+                completedCount: 0,
+                activeTaskId: '',
+                activeFilename: '',
+                errors: [],
+                status: files.length > 0 ? 'ready' : 'empty',
+                lastScanAt: new Date().toLocaleString()
+            });
+            showToast(`已扫描 ${files.length} 个文件`, files.length > 0 ? 'success' : 'warning');
+            return files;
+        } catch (err) {
+            updateNodeSettings(nodeId, {
+                status: 'failed',
+                errors: [{ index: -1, filename: '', error: err.message || '扫描失败' }]
+            });
+            showToast(`扫描失败: ${err.message || '未知错误'}`, 'error');
+            return [];
+        }
+    }, [getFolderLoopInputFolder, localServerUrl, showToast, updateNodeSettings]);
+
+    const stopFolderLoopNode = useCallback((nodeId) => {
+        const token = folderLoopRunRef.current.get(nodeId);
+        if (token) token.cancelled = true;
+        folderLoopRunRef.current.delete(nodeId);
+        updateNodeSettings(nodeId, { status: 'stopped', activeTaskId: '' });
+    }, [updateNodeSettings]);
+
+    const resetFolderLoopNode = useCallback((nodeId) => {
+        stopFolderLoopNode(nodeId);
+        updateNodeSettings(nodeId, {
+            currentIndex: 0,
+            completedCount: 0,
+            activeTaskId: '',
+            activeFilename: '',
+            errors: [],
+            status: 'ready'
+        });
+    }, [stopFolderLoopNode, updateNodeSettings]);
+
+    const runFolderLoopNode = useCallback(async (nodeId) => {
+        if (folderLoopRunRef.current.has(nodeId)) {
+            showToast('For 循环正在运行', 'warning');
+            return;
+        }
+        let node = (nodesRef.current || []).find((n) => n.id === nodeId);
+        if (!node) return;
+        let files = Array.isArray(node.settings?.files) ? node.settings.files : [];
+        if (files.length === 0) {
+            files = await scanFolderLoopNode(nodeId);
+            node = (nodesRef.current || []).find((n) => n.id === nodeId);
+        }
+        if (files.length === 0) {
+            showToast('没有可循环的文件', 'warning');
+            return;
+        }
+        const targetNode = getFolderLoopTargetNode(nodeId);
+        if (!targetNode) {
+            showToast('请先连接到 AI 绘图或 AI 视频节点', 'warning');
+            updateNodeSettings(nodeId, { status: 'ready' });
+            return;
+        }
+
+        const token = { cancelled: false };
+        folderLoopRunRef.current.set(nodeId, token);
+        const rawStartIndex = Number(node?.settings?.currentIndex || 0);
+        const shouldRestart = !Number.isFinite(rawStartIndex) || rawStartIndex >= files.length;
+        const startIndex = shouldRestart ? 0 : Math.max(0, Math.min(rawStartIndex, files.length - 1));
+        let completedCount = shouldRestart ? 0 : Number(node?.settings?.completedCount || 0);
+        let errors = shouldRestart ? [] : (Array.isArray(node?.settings?.errors) ? [...node.settings.errors] : []);
+
+        updateNodeSettings(nodeId, {
+            status: 'running',
+            activeTargetNodeId: targetNode.id,
+            activeTargetType: targetNode.type
+        });
+
+        for (let index = startIndex; index < files.length; index += 1) {
+            if (token.cancelled) break;
+            const currentTarget = getFolderLoopTargetNode(nodeId);
+            if (!currentTarget) {
+                errors.push({ index, filename: files[index]?.filename || '', error: '下游节点已断开' });
+                break;
+            }
+            const file = files[index];
+            const imageUrl = file?.url;
+            if (!imageUrl) {
+                errors.push({ index, filename: file?.filename || '', error: '文件 URL 缺失' });
+                continue;
+            }
+            const taskId = `for-loop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            updateNodeSettings(nodeId, {
+                status: 'running',
+                currentIndex: index,
+                activeTaskId: taskId,
+                activeFilename: file.filename || '',
+                errors
+            });
+            try {
+                const basePrompt = currentTarget.type === 'gen-image'
+                    ? currentTarget.settings?.prompt || ''
+                    : currentTarget.settings?.videoPrompt || '';
+                const connectedTexts = getConnectedTextNodes(currentTarget.id);
+                const finalPrompt = connectedTexts.length > 0
+                    ? `${connectedTexts.join(' ')}${basePrompt ? ` ${basePrompt}` : ''}`
+                    : basePrompt;
+                await startGeneration(finalPrompt, currentTarget.type === 'gen-image' ? 'image' : 'video', [imageUrl], currentTarget.id, {
+                    _existingTaskId: taskId,
+                    customParams: currentTarget.settings?.customParams,
+                    imageConcurrency: normalizeImageConcurrency(
+                        currentTarget.settings?.imageConcurrency
+                        || currentTarget.settings?.concurrentImages
+                        || getApiConfigByKey(currentTarget.settings?.model)?.defaultImageConcurrency
+                        || 1
+                    )
+                });
+                const result = await waitForFolderLoopTask(taskId);
+                if (result?.status === 'failed') {
+                    errors.push({ index, filename: file.filename || '', error: result.errorMsg || '生成失败' });
+                } else {
+                    completedCount += 1;
+                }
+                updateNodeSettings(nodeId, {
+                    currentIndex: index + 1,
+                    completedCount,
+                    activeTaskId: '',
+                    activeFilename: '',
+                    errors
+                });
+            } catch (err) {
+                errors.push({ index, filename: file.filename || '', error: err.message || '生成失败' });
+                updateNodeSettings(nodeId, { errors, activeTaskId: '', activeFilename: '' });
+            }
+        }
+
+        folderLoopRunRef.current.delete(nodeId);
+        if (token.cancelled) {
+            updateNodeSettings(nodeId, { status: 'stopped', activeTaskId: '' });
+            showToast('For 循环已停止', 'warning');
+            return;
+        }
+        updateNodeSettings(nodeId, { status: errors.length > 0 ? 'completed_with_errors' : 'completed', activeTaskId: '' });
+        showToast(`For 循环完成：${completedCount}/${files.length}`, errors.length > 0 ? 'warning' : 'success');
+    }, [
+        scanFolderLoopNode,
+        getFolderLoopTargetNode,
+        getFolderLoopInputFolder,
+        updateNodeSettings,
+        showToast,
+        getConnectedTextNodes,
+        startGeneration,
+        normalizeImageConcurrency,
+        getApiConfigByKey,
+        waitForFolderLoopTask
+    ]);
 
     // 功能1：批量下载选中的图片/视频节点
     const handleBatchDownload = async () => {
@@ -19286,7 +19574,7 @@ function TapnowApp() {
         setBatchGroups([]);
         if (!options.keepAssetBundle) resetAssetBundleState();
         if (!options.keepAutoSave) await clearAutoSaveStorage();
-        try { localStorage.removeItem('tapnow_project_name'); } catch (e) { }
+        try { localStorage.removeItem('dream_project_name'); } catch (e) { }
     }, [resetAssetBundleState, clearAutoSaveStorage]);
 
     // 功能5：保存项目到JSON文件（流式写入，支持超大文件）
@@ -19364,7 +19652,7 @@ function TapnowApp() {
                     const bundleName = `${projectName || '未命名项目'}_${timestamp}.zip`;
                     const handle = await window.showSaveFilePicker({
                         suggestedName: bundleName,
-                        types: [{ description: 'Tapnow Bundle', accept: { 'application/zip': ['.zip'] } }],
+                        types: [{ description: 'Dream Bundle', accept: { 'application/zip': ['.zip'] } }],
                     });
                     const projectData = {
                         version: '2.5.7',
@@ -20524,6 +20812,10 @@ function TapnowApp() {
                                 ? { w: 400, h: 300 }
                                 : type === 'preview'
                                     ? { w: 320, h: 260 }
+                                    : type === FOLDER_INPUT_NODE_TYPE
+                                        ? { w: 340, h: 180 }
+                                    : isForLoopNodeType(type)
+                                        ? { w: 360, h: 420 }
                                     : type === 'text-node'
                                         ? { w: 280, h: 200 }
                                         : type === 'novel-input'
@@ -20620,6 +20912,10 @@ function TapnowApp() {
                                                             ? { model: resolveModelKey(lastUsedImageModel), ratio: lastUsedRatio || '16:9', resolution: lastUsedImageResolution, prompt: '', referenceImages: [], chatModel: resolveModelKey(lastUsedExtractModel || ''), imageUrls: [], selectedImageIndex: null, isGenerating: false, progress: 0, error: null }
                                                             : type === 'local-save'
                                                                 ? { serverUrl: localServerUrl, savePath: '', subfolder: '', autoSave: false, serverStatus: localCacheServerConnected ? 'connected' : 'disconnected', lastSaved: null, savedFiles: [], lastSavedUrls: [] }
+                                                                : type === FOLDER_INPUT_NODE_TYPE
+                                                                    ? { folderPath: '' }
+                                                                : isForLoopNodeType(type)
+                                                                    ? { serverUrl: localServerUrl, folderPath: '', files: [], scanId: '', basePath: '', sourceFolderNodeId: '', currentIndex: 0, completedCount: 0, status: 'idle', errors: [], activeTaskId: '', activeFilename: '', lastScanAt: '' }
                                 : {},
         };
         setNodes(prev => [...prev, newNode]);
@@ -22639,7 +22935,7 @@ function TapnowApp() {
         }
 
         // 2. 获取选中的图片模型
-        const selectedModel = resolveModelKey(shot.model || localStorage.getItem('tapnow_last_image_model') || (apiConfigs.find(c => isImageModelType(c.type))?.id || ''));
+        const selectedModel = resolveModelKey(shot.model || localStorage.getItem('dream_last_image_model') || (apiConfigs.find(c => isImageModelType(c.type))?.id || ''));
         const modelConfig = getApiConfigByKey(selectedModel);
 
         if (!modelConfig || !isImageModelType(modelConfig.type)) {
@@ -22948,7 +23244,7 @@ function TapnowApp() {
             updateNodeSettings(nodeId, { model: modelId });
         }
         setLastUsedExtractModel(modelId);
-        try { localStorage.setItem('tapnow_last_extract_model', modelId); } catch { }
+        try { localStorage.setItem('dream_last_extract_model', modelId); } catch { }
 
         // 3. 更新状态
         updateNodeSettings(nodeId, { isAnalyzing: true, progress: 5, errorMsg: null, analysisResults: null });
@@ -25647,7 +25943,7 @@ ${inputText.substring(0, 15000)} ... (截断)
             setDownloadProgress(prev => ({ ...prev, current: totalSteps }));
             const now = new Date();
             const timestamp = `${now.getFullYear().toString().slice(2)}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
-            saveAs(content, `tapnow-assets-${timestamp}.zip`);
+            saveAs(content, `dream-assets-${timestamp}.zip`);
 
             // V3.5.12: Reset download progress
             setDownloadProgress({ active: false, current: totalSteps, total: totalSteps });
@@ -26345,7 +26641,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const interactive = e.target.closest('input, textarea, select, button, a, [contenteditable="true"]');
                         if (!interactive) return;
                         touchNodeSelectionPriority(node.id);
-                        if (e.nativeEvent) e.nativeEvent.__tapnowSelectionHandled = true;
+                        if (e.nativeEvent) e.nativeEvent.__dreamSelectionHandled = true;
                         if (e.ctrlKey || e.metaKey) {
                             setSelectedNodeIds(prev => {
                                 const newSet = new Set(prev);
@@ -26372,7 +26668,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         }
                     }}
                     onMouseDown={(e) => {
-                        if (e.nativeEvent?.__tapnowSelectionHandled) return;
+                        if (e.nativeEvent?.__dreamSelectionHandled) return;
                         if (e.button === 0) {
                             touchNodeSelectionPriority(node.id);
                             e.stopPropagation();
@@ -26462,14 +26758,16 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                     node.type === 'generate-scene-image' ? '生成场景图片' :
                                                                                         node.type === 'create-character' ? '创建角色' :
                                                                                             node.type === 'create-scene' ? '创建场景' :
-                                                                                                node.type === 'save-to-local' ? '保存到本地' :
+                                                                                            node.type === 'save-to-local' ? '保存到本地' :
                                                                                                     node.type === 'local-save' ? '保存到本地' :
+                                                                                                        node.type === FOLDER_INPUT_NODE_TYPE ? '选择文件夹' :
+                                                                                                            isForLoopNodeType(node.type) ? 'For 循环' :
                                                                                                         node.type || '节点'}
                         </div>
                     )}
 
                     {/* 保留连接点占位符，确保连线位置正确（简化样式） */}
-                    {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && (
+                    {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
                         node.type === 'image-compare' ? (
                             <>
                                 <div
@@ -26545,9 +26843,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                             />
                         )
                     )}
-                    {node.type !== 'preview' && (
-                        <div
-                            className="connector connector-right"
+                {node.type !== 'preview' && (
+                    <div
+                        className="connector connector-right"
                             style={{
                                 position: 'absolute',
                                 top: '50%',
@@ -26565,17 +26863,19 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 opacity: connectingSource === node.id ? 1 : 0.5,
                                 pointerEvents: 'auto'
                             }}
-                            onMouseDown={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                const world = screenToWorld(e.clientX, e.clientY);
-                                setMousePos(world);
-                                setConnectingSource(node.id);
-                            }}
-                        >
-                            <Plus size={10} />
-                        </div>
-                    )}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const world = screenToWorld(e.clientX, e.clientY);
+                            setMousePos(world);
+                            setConnectingSource(node.id);
+                        }}
+                        onMouseEnter={() => { if (connectingTarget) setHoverTargetId(node.id); }}
+                        onMouseLeave={() => { if (connectingTarget && hoverTargetId === node.id) setHoverTargetId(null); }}
+                    >
+                        <Plus size={10} />
+                    </div>
+                )}
                 </div>
             );
         }
@@ -26616,7 +26916,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     const interactive = e.target.closest('input, textarea, select, button, a, [contenteditable="true"]');
                     if (!interactive) return;
                     touchNodeSelectionPriority(node.id);
-                    if (e.nativeEvent) e.nativeEvent.__tapnowSelectionHandled = true;
+                    if (e.nativeEvent) e.nativeEvent.__dreamSelectionHandled = true;
                     if (e.ctrlKey || e.metaKey) {
                         setSelectedNodeIds(prev => {
                             const newSet = new Set(prev);
@@ -26643,7 +26943,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     }
                 }}
                 onMouseDown={(e) => {
-                    if (e.nativeEvent?.__tapnowSelectionHandled) return;
+                    if (e.nativeEvent?.__dreamSelectionHandled) return;
                     if (e.button === 0) {
                         touchNodeSelectionPriority(node.id);
                         e.stopPropagation();
@@ -26718,7 +27018,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 </button>
                 <div className="absolute bottom-1 right-1 w-4 h-4 z-[100] resize-handle flex items-end justify-end p-0.5" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setResizingNodeId(node.id); }}><svg width="6" height="6" viewBox="0 0 8 8" fill="none" className="text-zinc-600"><path d="M8 0L8 8L0 8" stroke="currentColor" strokeWidth="2" /></svg></div>
 
-                {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && (
+                {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
                     node.type === 'image-compare' ? (
                         <>
                             <div
@@ -26902,7 +27202,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                         onClick={() => {
                                                                             updateNodeSettings(node.id, { model: modelKey });
                                                                             setLastUsedExtractModel(modelKey);
-                                                                            try { localStorage.setItem('tapnow_last_extract_model', modelKey); } catch { }
+                                                                            try { localStorage.setItem('dream_last_extract_model', modelKey); } catch { }
                                                                             setActiveDropdown(null);
                                                                             setHoveredProvider(null);
                                                                         }}
@@ -27189,7 +27489,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                 onClick={() => {
                                                                                     updateNodeSettings(node.id, { chatModel: modelKey });
                                                                                     setLastUsedExtractModel(modelKey);
-                                                                                    try { localStorage.setItem('tapnow_last_extract_model', modelKey); } catch { }
+                                                                                    try { localStorage.setItem('dream_last_extract_model', modelKey); } catch { }
                                                                                     setActiveDropdown(null);
                                                                                     setHoveredProvider(null);
                                                                                 }}
@@ -27430,7 +27730,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                 onClick={() => {
                                                                                     updateNodeSettings(node.id, { model: modelKey });
                                                                                     setLastUsedVideoModel(modelKey);
-                                                                                    try { localStorage.setItem('tapnow_last_video_model', modelKey); } catch { }
+                                                                                    try { localStorage.setItem('dream_last_video_model', modelKey); } catch { }
                                                                                     setActiveDropdown(null);
                                                                                     setHoveredProvider(null);
                                                                                 }}
@@ -27504,7 +27804,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         updateNodeSettings(node.id, { resolution: nextValue });
                                                         if (nextValue !== 'Auto') {
                                                             setLastUsedVideoResolution(nextValue);
-                                                            try { localStorage.setItem('tapnow_last_video_res', nextValue); } catch { }
+                                                            try { localStorage.setItem('dream_last_video_res', nextValue); } catch { }
                                                         }
                                                     }}
                                                     className={`w-full px-2 py-1 rounded text-xs border ${theme === 'dark'
@@ -27703,7 +28003,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                 onClick={() => {
                                                                                     updateNodeSettings(node.id, { model: modelKey });
                                                                                     setLastUsedImageModel(modelKey);
-                                                                                    try { localStorage.setItem('tapnow_last_image_model', modelKey); } catch { }
+                                                                                    try { localStorage.setItem('dream_last_image_model', modelKey); } catch { }
                                                                                     setActiveDropdown(null);
                                                                                     setHoveredProvider(null);
                                                                                 }}
@@ -28109,6 +28409,151 @@ ${inputText.substring(0, 15000)} ... (截断)
                             })()}
                         </div>
                     )}
+                    {node.type === FOLDER_INPUT_NODE_TYPE && (
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                            <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold">
+                                    <FolderOpen size={12} className="text-blue-400" />
+                                    <span>{t('选择文件夹')}</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500">{t('输出路径')}</span>
+                            </div>
+                            <div className="flex-1 p-3 flex flex-col gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-medium opacity-70">{t('本地文件夹路径')}</label>
+                                    <input
+                                        type="text"
+                                        value={node.settings?.folderPath || ''}
+                                        onChange={(e) => updateNodeSettings(node.id, { folderPath: e.target.value })}
+                                        placeholder="D:\images"
+                                        className={`w-full text-xs border rounded px-2 py-1.5 outline-none focus:border-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 placeholder-zinc-600' : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800 placeholder-zinc-400' : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'}`}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    />
+                                </div>
+                                <div className={`rounded border px-2 py-2 text-[10px] leading-relaxed ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40 text-zinc-400' : 'border-zinc-200 bg-white/70 text-zinc-500'}`}>
+                                    {t('把右侧输出连接到 For 循环节点，For 循环会读取这个文件夹并生成文件列表。')}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {isForLoopNodeType(node.type) && (() => {
+                        const files = Array.isArray(node.settings?.files) ? node.settings.files : [];
+                        const errors = Array.isArray(node.settings?.errors) ? node.settings.errors : [];
+                        const status = node.settings?.status || 'idle';
+                        const currentIndex = Math.min(Number(node.settings?.currentIndex || 0), files.length);
+                        const completedCount = Number(node.settings?.completedCount || 0);
+                        const isRunning = status === 'running' || status === 'scanning';
+                        const targetNode = getFolderLoopTargetNode(node.id);
+                        const folderInput = getFolderLoopInputFolder(node.id);
+                        const folderPath = folderInput.folderPath || '';
+                        const usingFolderInput = !!folderInput.sourceNodeId;
+                        const progressPct = files.length > 0 ? Math.min(100, Math.round((currentIndex / files.length) * 100)) : 0;
+
+                        return (
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                                <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                                        <FolderOpen size={12} className="text-cyan-400" />
+                                        <span>{node.type === LEGACY_FOLDER_LOOP_NODE_TYPE ? t('文件夹循环') : t('For 循环')}</span>
+                                    </div>
+                                    <span className={`text-[10px] ${status === 'running' ? 'text-green-400' : status === 'failed' ? 'text-red-400' : 'text-zinc-500'}`}>
+                                        {status}
+                                    </span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col gap-3">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-medium opacity-70">{t('本地服务地址')}</label>
+                                        <input
+                                            type="text"
+                                            value={node.settings?.serverUrl ?? ''}
+                                            onChange={(e) => updateNodeSettings(node.id, { serverUrl: e.target.value })}
+                                            placeholder={localServerUrl || 'http://127.0.0.1:9527'}
+                                            className={`w-full text-xs border rounded px-2 py-1.5 outline-none focus:border-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 placeholder-zinc-600' : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800 placeholder-zinc-400' : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'}`}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-medium opacity-70">{t('输入文件夹')}</label>
+                                            <span className={`text-[9px] ${usingFolderInput ? 'text-blue-400' : 'text-zinc-500'}`}>
+                                                {usingFolderInput ? t('来自选择文件夹节点') : t('未连接选择文件夹节点')}
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={folderPath}
+                                            readOnly={usingFolderInput}
+                                            onChange={(e) => updateNodeSettings(node.id, { folderPath: e.target.value })}
+                                            placeholder={t('连接选择文件夹节点，或临时输入路径')}
+                                            className={`w-full text-xs border rounded px-2 py-1.5 outline-none focus:border-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 placeholder-zinc-600' : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800 placeholder-zinc-400' : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'}`}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            className={`py-1.5 rounded text-[10px] font-medium ${theme === 'dark' ? 'bg-cyan-600/25 text-cyan-200 hover:bg-cyan-600/35' : 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200'}`}
+                                            disabled={isRunning}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={() => scanFolderLoopNode(node.id)}
+                                        >
+                                            {t('扫描')}
+                                        </button>
+                                        <button
+                                            className={`py-1.5 rounded text-[10px] font-medium ${isRunning ? 'bg-zinc-600 text-white cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+                                            disabled={isRunning || files.length === 0}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={() => runFolderLoopNode(node.id)}
+                                        >
+                                            {t('开始')}
+                                        </button>
+                                        <button
+                                            className={`py-1.5 rounded text-[10px] font-medium ${theme === 'dark' ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300'}`}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={() => isRunning ? stopFolderLoopNode(node.id) : resetFolderLoopNode(node.id)}
+                                        >
+                                            {isRunning ? t('停止') : t('重置')}
+                                        </button>
+                                    </div>
+                                    <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                                            <span>{targetNode ? `${t('下游')}: ${targetNode.type === 'gen-image' ? t('AI 绘图') : t('AI 视频')}` : t('未连接下游节点')}</span>
+                                            <span>{completedCount}/{files.length}</span>
+                                        </div>
+                                        <div className="mt-2 h-1.5 rounded bg-zinc-700/30 overflow-hidden">
+                                            <div className="h-full bg-cyan-500 transition-all" style={{ width: `${progressPct}%` }} />
+                                        </div>
+                                        {node.settings?.activeFilename && (
+                                            <div className="mt-2 text-[10px] text-zinc-400 truncate" title={node.settings.activeFilename}>
+                                                {t('当前')}: {node.settings.activeFilename}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className={`rounded border max-h-24 overflow-y-auto custom-scrollbar ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                        {files.slice(Math.max(0, currentIndex - 1), Math.max(0, currentIndex - 1) + 5).map((file) => (
+                                            <div key={`${file.index}-${file.filename}`} className={`flex items-center gap-2 px-2 py-1.5 text-[10px] border-b last:border-b-0 ${theme === 'dark' ? 'border-zinc-800 text-zinc-300' : 'border-zinc-200 text-zinc-700'}`}>
+                                                <span className="w-6 shrink-0 text-zinc-500">#{(file.index ?? 0) + 1}</span>
+                                                <span className="truncate" title={file.path || file.filename}>{file.filename}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {files.length === 0 && (
+                                        <div className="text-[10px] text-zinc-500">{t('扫描后会在这里显示文件列表')}</div>
+                                    )}
+                                    {errors.length > 0 && (
+                                        <div className="text-[10px] text-red-400 space-y-1">
+                                            <div>{t('失败记录')}: {errors.length}</div>
+                                            {errors.slice(-3).map((err, idx) => (
+                                                <div key={`${err.index}-${idx}`} className="truncate" title={err.error}>
+                                                    {(err.filename || `#${err.index + 1}`)} · {err.error}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {node.type === 'local-save' && (() => {
                         const pendingItems = getLocalSaveMediaItems(node.id);
                         const pendingCount = pendingItems.length;
@@ -28949,7 +29394,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                     const val = parseInt(e.target.value) || 3;
                                                                     updateNodeSettings(node.id, { segmentDuration: val });
                                                                     setLastUsedSegmentDuration(val.toString());
-                                                                    try { localStorage.setItem('tapnow_last_segment_duration', val.toString()); } catch { }
+                                                                    try { localStorage.setItem('dream_last_segment_duration', val.toString()); } catch { }
                                                                 }}
                                                                 className={`w-16 px-2 py-1 text-[11px] rounded border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800' : 'bg-white border-zinc-300 text-zinc-800'}`}
                                                                 onMouseDown={(e) => e.stopPropagation()}
@@ -29011,7 +29456,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                             onClick={() => {
                                                                                                 updateNodeSettings(node.id, { model: modelKey });
                                                                                                 setLastUsedAnalyzeModel(modelKey);
-                                                                                                try { localStorage.setItem('tapnow_last_analyze_model', modelKey); } catch { }
+                                                                                                try { localStorage.setItem('dream_last_analyze_model', modelKey); } catch { }
                                                                                                 setActiveDropdown(null);
                                                                                                 setHoveredProvider(null);
                                                                                             }}
@@ -29454,7 +29899,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             }
 
                             // 2. 尝试从左侧历史记录拖入 (dataTransfer)
-                            const rawPayload = e.dataTransfer.getData('application/x-tapnow-history');
+                            const rawPayload = e.dataTransfer.getData(HISTORY_DRAG_MIME) || e.dataTransfer.getData(LEGACY_HISTORY_DRAG_MIME);
                             if (rawPayload) {
                                 try {
                                     const payload = JSON.parse(rawPayload);
@@ -29790,7 +30235,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 ...currentShots[i],
                                                                 prompt: currentShots[i]?.prompt ?? '',
                                                                 description: currentShots[i]?.description ?? '',
-                                                                model: resolveModelKey(currentShots[i]?.model || localStorage.getItem('tapnow_last_video_model') || ''),
+                                                                model: resolveModelKey(currentShots[i]?.model || localStorage.getItem('dream_last_video_model') || ''),
                                                                 image_url: keyframes[i]?.url ?? currentShots[i]?.image_url ?? '',
                                                                 image_filename: keyframes[i]?.filename || currentShots[i]?.image_filename || '',
                                                                 status: currentShots[i]?.status || 'draft'
@@ -31342,7 +31787,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                 <span className="truncate font-mono text-[10px]">
                                                                                     {(() => {
                                                                                         const mode = normalizeStoryboardMode(node.settings?.mode);
-                                                                                        const lastModelKey = mode === 'image' ? 'tapnow_last_image_model' : 'tapnow_last_video_model';
+                                                                                        const lastModelKey = mode === 'image' ? 'dream_last_image_model' : 'dream_last_video_model';
                                                                                         // V3.7.29: 只显示 shot.model，不 fallback 到 localStorage（避免假联动）
                                                                                         return getApiConfigByKey(shot.model)?.id || shot.model || '选择模型';
                                                                                     })()}
@@ -31407,7 +31852,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                                                     customParams: getDefaultCustomParamsForModel(modelKey, null, { preserveByName: false })
                                                                                                                 });
                                                                                                                 // V3.6.0.fuckedup: 根据模式保存最后使用的模型
-                                                                                                                const lastModelKey = mode === 'image' ? 'tapnow_last_image_model' : 'tapnow_last_video_model';
+                                                                                                                const lastModelKey = mode === 'image' ? 'dream_last_image_model' : 'dream_last_video_model';
                                                                                                                 localStorage.setItem(lastModelKey, modelKey);
                                                                                                                 // 同步到 state
                                                                                                                 if (mode === 'image') {
@@ -33305,10 +33750,10 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                             // V3.4.8: 记住上次使用的模型
                                                                             if (node.type === 'gen-image') {
                                                                                 setLastUsedImageModel(modelKey);
-                                                                                try { localStorage.setItem('tapnow_last_image_model', modelKey); } catch { }
+                                                                                try { localStorage.setItem('dream_last_image_model', modelKey); } catch { }
                                                                             } else if (node.type === 'gen-video') {
                                                                                 setLastUsedVideoModel(modelKey);
-                                                                                try { localStorage.setItem('tapnow_last_video_model', modelKey); } catch { }
+                                                                                try { localStorage.setItem('dream_last_video_model', modelKey); } catch { }
                                                                             }
                                                                             setActiveDropdown(null);
                                                                             setHoveredProvider(null);
@@ -33422,7 +33867,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                     onClick={() => {
                                                                         updateNodeSettings(node.id, { ratio: r });
                                                                         setLastUsedRatio(r);
-                                                                        try { localStorage.setItem('tapnow_last_ratio', r); } catch { }
+                                                                        try { localStorage.setItem('dream_last_ratio', r); } catch { }
                                                                         setActiveDropdown(null);
                                                                     }}
                                                                     className={`w-full text-center py-1 text-[10px] rounded ${theme === 'dark'
@@ -33485,7 +33930,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                             updateNodeSettings(node.id, { resolution: r });
                                                                             if (r !== 'Auto') {
                                                                                 setLastUsedVideoResolution(r);
-                                                                                try { localStorage.setItem('tapnow_last_video_res', r); } catch { }
+                                                                                try { localStorage.setItem('dream_last_video_res', r); } catch { }
                                                                             }
                                                                             setActiveDropdown(null);
                                                                         }}
@@ -33570,7 +34015,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                         onClick={() => {
                                                                             updateNodeSettings(node.id, { resolution: r });
                                                                             setLastUsedImageResolution(r);
-                                                                            try { localStorage.setItem('tapnow_last_image_res', r); } catch { }
+                                                                            try { localStorage.setItem('dream_last_image_res', r); } catch { }
                                                                             setActiveDropdown(null);
                                                                         }}
                                                                         className={`w-full text-center py-1 text-[10px] rounded ${theme === 'dark'
@@ -33761,7 +34206,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 </div>
             </div >
         );
-    }, [selectedNodeId, selectedNodeIds, hoverTargetId, nodeConnectedStatus, adjacentNodesCache, apiConfigsMap, getConnectedInputImages, theme, view, dragNodeId, connectingSource, connectingTarget, connectingInputType, deleteNode, handleNodeMouseUp, screenToWorld, setDragNodeId, setSelectedNodeId, setSelectedNodeIds, setActiveDropdown, setHoverTargetId, setConnectingSource, setConnectingTarget, setConnectingInputType, setResizingNodeId, setLightboxItem, isVideoUrl, updateNodeSettings, getConnectedTextNodes, startGeneration, getDefaultDurationForModel, getDefaultDurationsForModel, getConnectedGenNodes, getConnectedVideoInputNode, getConnectedVideoAnalyzeNode, handleCanvasDragOver, handleGenNodeDrop, importStoryboardMarkdownTable, importStoryboardTableFromFile, mutateStoryboardTable, normalizeStoryboardTableData, openStoryboardTableCellEditor, runStoryboardTablePromptMerge, markInteraction, resolveNodeRenderZIndex, touchNodeSelectionPriority]);
+    }, [selectedNodeId, selectedNodeIds, hoverTargetId, nodeConnectedStatus, adjacentNodesCache, apiConfigsMap, getConnectedInputImages, theme, view, dragNodeId, connectingSource, connectingTarget, connectingInputType, deleteNode, handleNodeMouseUp, screenToWorld, setDragNodeId, setSelectedNodeId, setSelectedNodeIds, setActiveDropdown, setHoverTargetId, setConnectingSource, setConnectingTarget, setConnectingInputType, setResizingNodeId, setLightboxItem, isVideoUrl, updateNodeSettings, getConnectedTextNodes, startGeneration, scanFolderLoopNode, runFolderLoopNode, stopFolderLoopNode, resetFolderLoopNode, getFolderLoopTargetNode, getFolderLoopInputFolder, getDefaultDurationForModel, getDefaultDurationsForModel, getConnectedGenNodes, getConnectedVideoInputNode, getConnectedVideoAnalyzeNode, handleCanvasDragOver, handleGenNodeDrop, importStoryboardMarkdownTable, importStoryboardTableFromFile, mutateStoryboardTable, normalizeStoryboardTableData, openStoryboardTableCellEditor, runStoryboardTablePromptMerge, markInteraction, resolveNodeRenderZIndex, touchNodeSelectionPriority]);
 
     // 高性能模式：当节点数量超过 50 或手动开启时启用
     const isPerfMode = nodes.length > 50 || globalPerformanceMode !== 'off';
@@ -33807,7 +34252,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             className={`font-bold text-sm tracking-wide ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'
                                 }`}
                         >
-                            Tapnow Studio
+                            Dream
                         </span>
                         {/* 功能4：项目名称编辑 */}
                         {isEditingProjectName ? (
@@ -33819,14 +34264,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 onBlur={() => {
                                     setIsEditingProjectName(false);
                                     try {
-                                        localStorage.setItem('tapnow_project_name', projectName);
+                                        localStorage.setItem('dream_project_name', projectName);
                                     } catch (e) { }
                                 }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                         setIsEditingProjectName(false);
                                         try {
-                                            localStorage.setItem('tapnow_project_name', projectName);
+                                            localStorage.setItem('dream_project_name', projectName);
                                         } catch (e) { }
                                     }
                                 }}
@@ -35010,7 +35455,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 const updated = characterLibrary.filter(c => c.id !== character.id);
                                                                 setCharacterLibrary(updated);
                                                                 try {
-                                                                    localStorage.setItem('tapnow_characters', JSON.stringify(updated));
+                                                                    localStorage.setItem('dream_characters', JSON.stringify(updated));
                                                                 } catch (err) {
                                                                     console.error('保存角色库失败:', err);
                                                                 }
@@ -35876,6 +36321,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         { type: 'gen-video', label: t('AI 视频') },
                                         { type: 'image-compare', label: t('图像对比') },
                                         { type: 'preview', label: t('预览窗口') },
+                                        { type: FOLDER_INPUT_NODE_TYPE, label: t('选择文件夹') },
+                                        { type: FOR_LOOP_NODE_TYPE, label: t('For 循环') },
                                         { type: 'local-save', label: t('保存到本地') }
                                     ].map(item => (
                                         <div key={item.type}>
@@ -36646,7 +37093,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 onChange={(e) => {
                                                                     const url = e.target.value;
                                                                     setLocalServerUrl(url);
-                                                                    localStorage.setItem('tapnow_local_server_url', url);
+                                                                    localStorage.setItem('dream_local_server_url', url);
                                                                 }}
                                                                 placeholder="http://127.0.0.1:9527"
                                                                 className={`w-full text-xs rounded px-2 py-1 border outline-none ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : 'bg-white border-zinc-300'}`}
@@ -36722,7 +37169,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 onChange={(e) => {
                                                                     const newValue = parseInt(e.target.value) || 5;
                                                                     setMaxUndoSteps(newValue);
-                                                                    localStorage.setItem('tapnow_max_undo_steps', String(newValue));
+                                                                    localStorage.setItem('dream_max_undo_steps', String(newValue));
                                                                 }}
                                                                 className="w-20"
                                                                 onMouseDown={(e) => e.stopPropagation()}
@@ -36751,7 +37198,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 onChange={(e) => {
                                                                     const newValue = e.target.checked;
                                                                     setJimengUseLocalFile(newValue);
-                                                                    localStorage.setItem('tapnow_jimeng_use_local_file', String(newValue));
+                                                                    localStorage.setItem('dream_jimeng_use_local_file', String(newValue));
                                                                 }}
                                                                 className="sr-only peer"
                                                             />
@@ -36799,7 +37246,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         const dd = now.getDate().toString().padStart(2, '0');
                                                         const hh = now.getHours().toString().padStart(2, '0');
                                                         const min = now.getMinutes().toString().padStart(2, '0');
-                                                        a.download = `tapnow-api-keys-${yy}${mm}${dd}-${hh}${min}.json`;
+                                                        a.download = `dream-api-keys-${yy}${mm}${dd}-${hh}${min}.json`;
                                                         a.click();
                                                         URL.revokeObjectURL(url);
                                                     }}
@@ -36824,7 +37271,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 const data = JSON.parse(text);
                                                                 if (data.globalApiKey) {
                                                                     setGlobalApiKey(data.globalApiKey);
-                                                                    localStorage.setItem('tapnow_global_key', data.globalApiKey);
+                                                                    localStorage.setItem('dream_global_key', data.globalApiKey);
                                                                 }
                                                                 if (data.providers) {
                                                                     const normalized = Object.fromEntries(
@@ -36843,7 +37290,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                     collapsedLibraryStateLoadedRef.current = true;
                                                                     setCollapsedLibraryModels(collapsedSet);
                                                                     try {
-                                                                        localStorage.setItem('tapnow_model_library_collapsed', JSON.stringify(Array.from(collapsedSet)));
+                                                                        localStorage.setItem('dream_model_library_collapsed', JSON.stringify(Array.from(collapsedSet)));
                                                                     } catch (e) {
                                                                         console.error('保存模型库折叠状态失败:', e);
                                                                     }
@@ -39347,7 +39794,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                             const filtered = prev.filter(item => !batchSelectedIds.has(item.id));
                                                             // 立即保存到 localStorage，不等待防抖
                                                             try {
-                                                                localStorage.setItem('tapnow_history', JSON.stringify(filtered));
+                                                                localStorage.setItem('dream_history', JSON.stringify(filtered));
                                                             } catch (e) {
                                                                 console.error('立即保存历史记录失败:', e);
                                                             }
@@ -39790,7 +40237,7 @@ ${inputText.substring(0, 15000)} ... (截断)
     );
 }
 
-export default TapnowApp;
+export default DreamApp;
 
 
 

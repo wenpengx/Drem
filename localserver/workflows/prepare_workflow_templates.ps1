@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
-Write-Output "[Tapnow] Scan workflows subfolders..."
+Write-Output "[Dream] Scan workflows subfolders..."
 
 function Add-Param($map, $key, $nodeId, $inputName) {
     if (-not $key -or -not $nodeId -or -not $inputName) { return }
@@ -106,4 +106,4 @@ Get-ChildItem -Directory | ForEach-Object {
     }
 }
 
-Write-Output "[Tapnow] Done."
+Write-Output "[Dream] Done."

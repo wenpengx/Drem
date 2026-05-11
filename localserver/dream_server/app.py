@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Tapnow Studio 本地全功能服务器 (Tapnow Local Server Full)
+Dream 本地全功能服务器 (Dream Local Server Full)
 版本: 2.3 (ComfyUI Compatible)
 
 功能概述:
@@ -56,7 +56,7 @@ except ImportError:
 
 # 1.2 功能开关 (Feature Flags)
 # 最佳实践：使用环境变量控制功能开关，方便在部署或调试时快速切换
-# 可以通过设置环境变量 (如 set TAPNOW_ENABLE_COMFY=0) 来强制关闭某模块
+# 可以通过设置环境变量 (如 set DREAM_ENABLE_COMFY=0) 来强制关闭某模块
 def get_env_bool(key, default):
     val = os.environ.get(key)
     if val is None: return default
@@ -64,24 +64,24 @@ def get_env_bool(key, default):
 
 FEATURES = {
     # 核心文件服务 (默认开启)
-    "file_server": get_env_bool("TAPNOW_ENABLE_FILE_SERVER", True),   
+    "file_server": get_env_bool("DREAM_ENABLE_FILE_SERVER", True),
     
     # 代理服务 (默认开启)
-    "proxy_server": get_env_bool("TAPNOW_ENABLE_PROXY", True),  
+    "proxy_server": get_env_bool("DREAM_ENABLE_PROXY", True),
     
     # ComfyUI 中间件 (依赖存在且未被环境变量禁用时开启)
-    "comfy_middleware": get_env_bool("TAPNOW_ENABLE_COMFY", WS_AVAILABLE), 
+    "comfy_middleware": get_env_bool("DREAM_ENABLE_COMFY", WS_AVAILABLE),
     
     # 控制台日志 (可关闭以减少噪音)
-    "log_console": get_env_bool("TAPNOW_ENABLE_LOG", True)    
+    "log_console": get_env_bool("DREAM_ENABLE_LOG", True)
 }
 
 # 1.3 默认配置常量
 DEFAULT_PORT = 9527
-DEFAULT_SAVE_PATH = os.path.expanduser("~/Downloads/TapnowStudio")
+DEFAULT_SAVE_PATH = os.path.expanduser("~/Downloads/Dream")
 DEFAULT_ALLOWED_ROOTS = [
     os.path.expanduser("~/Downloads"),
-    os.path.abspath(r"D:\TapnowData")
+    os.path.abspath(r"D:\DreamData")
 ]
 DEFAULT_PROXY_ALLOWED_HOSTS = [
     "api.openai.com", "generativelanguage.googleapis.com", 
@@ -91,9 +91,13 @@ DEFAULT_PROXY_ALLOWED_HOSTS = [
     "127.0.0.1:8188", "localhost:8188"
 ]
 DEFAULT_PROXY_TIMEOUT = 300
-CONFIG_FILENAME = "tapnow-local-config.json"
+CONFIG_FILENAME = "dream-local-config.json"
+LOCALSERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_FILE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 PROXY_MEDIA_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+IMAGE_FILE_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif'
+}
 MEDIA_FILE_EXTENSIONS = {
     '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif',
     '.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'
@@ -102,8 +106,8 @@ MEDIA_FILE_EXTENSIONS = {
 # ComfyUI 特有配置
 COMFY_URL = "http://127.0.0.1:8188"
 COMFY_WS_URL = "ws://127.0.0.1:8188/ws"
-# 自动定位到当前脚本所在目录下的 workflows 文件夹
-WORKFLOWS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "workflows")
+# 自动定位到 localserver/workflows 文件夹
+WORKFLOWS_DIR = os.path.join(LOCALSERVER_DIR, "workflows")
 
 # 1.4 全局运行时配置字典
 config = {
@@ -129,6 +133,8 @@ STATUS_LOCK = threading.Lock()
 CLIENT_ID = str(uuid.uuid4())
 WS_MESSAGES = {}
 PROMPT_TO_JOB = {}
+FOLDER_LOOP_SCANS = {}
+FOLDER_LOOP_LOCK = threading.Lock()
 
 # ==============================================================================
 # SECTION 2: 核心工具函数 (Core Utilities)
@@ -150,8 +156,8 @@ def ensure_dir(path):
             log(f"创建目录失败 {path}: {e}")
 
 def load_config_file():
-    """加载本地配置文件 (tapnow-local-config.json)"""
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), CONFIG_FILENAME)
+    """加载本地配置文件 (dream-local-config.json)"""
+    config_path = os.path.join(LOCALSERVER_DIR, CONFIG_FILENAME)
     if not os.path.exists(config_path):
         return
     try:
@@ -178,22 +184,27 @@ def load_config_file():
 def get_allowed_roots():
     """获取允许的文件操作根目录列表"""
     if sys.platform == 'win32':
-        return config.get("allowed_roots", DEFAULT_ALLOWED_ROOTS)
+        roots = list(config.get("allowed_roots", DEFAULT_ALLOWED_ROOTS) or [])
+        for key in ("save_path", "image_save_path", "video_save_path"):
+            value = config.get(key)
+            if value and value not in roots:
+                roots.append(value)
+        return roots
     return [config["save_path"]]
 
 def is_path_allowed(path):
     """安全检查：路径是否在白名单内"""
-    try:
-        path_abs = os.path.abspath(os.path.expanduser(path))
-        path_norm = os.path.normcase(path_abs)
-        for root in get_allowed_roots():
+    path_abs = os.path.abspath(os.path.expanduser(path))
+    path_norm = os.path.normcase(path_abs)
+    for root in get_allowed_roots():
+        try:
             root_abs = os.path.abspath(os.path.expanduser(root))
             root_norm = os.path.normcase(root_abs)
             # 检查 commonpath 前缀是否匹配
             if os.path.commonpath([path_norm, root_norm]) == root_norm:
                 return True
-    except Exception:
-        pass
+        except Exception:
+            continue
     return False
 
 def normalize_rel_path(rel_path):
@@ -335,7 +346,11 @@ def convert_png_to_jpg(png_data, quality=95):
 
 def is_image_file(filename):
     ext = os.path.splitext(filename)[1].lower()
-    return ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+    return ext in IMAGE_FILE_EXTENSIONS
+
+def natural_sort_key(value):
+    import re
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r'(\d+)', value or '')]
 
 def is_video_file(filename):
     ext = os.path.splitext(filename)[1].lower()
@@ -817,7 +832,7 @@ def resolve_job_by_request_id(request_id):
 # SECTION 4: HTTP 处理器 (Request Handlers)
 # ==============================================================================
 
-class TapnowFullHandler(BaseHTTPRequestHandler):
+class DreamFullHandler(BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
         # 覆盖默认日志，使用统一的 log 函数
@@ -879,7 +894,7 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
         if path == '/status' or path == '/ping':
             self._send_json({
                 "status": "running",
-                "version": "2.3.0",
+                "version": "1.0.0",
                 "features": FEATURES,
                 "config": {
                     "save_path": config["save_path"],
@@ -931,6 +946,10 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True, "files": files, "base_path": base_path.replace('\\', '/')})
             return
 
+        if path == '/folder-loop/file':
+            self.handle_folder_loop_file(parsed)
+            return
+
         if path.startswith('/file/'):
             # 本地文件访问 (/file/download/image.png)
             self.handle_file_serve(path[6:]) # strip '/file/'
@@ -971,6 +990,8 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
             self.handle_delete_file(body)
         elif path == '/delete-batch':
             self.handle_delete_batch(body)
+        elif path == '/folder-loop/scan':
+            self.handle_folder_loop_scan(body)
         elif path == '/config':
             self.handle_update_config(body)
         else:
@@ -1349,7 +1370,7 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
             if not item_id or not content:
                 self._send_json({"success": False, "error": "缺少ID或内容"}, 400)
                 return
-            cache_dir = os.path.join(config["save_path"], '.tapnow_cache', category)
+            cache_dir = os.path.join(config["save_path"], '.dream_cache', category)
             ensure_dir(cache_dir)
             filename = f"{item_id}.jpg"
             filepath = os.path.join(cache_dir, filename)
@@ -1358,7 +1379,7 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
             file_data = base64.b64decode(content)
             with open(filepath, 'wb') as f:
                 f.write(file_data)
-            rel_path = f".tapnow_cache/{category}/{filename}"
+            rel_path = f".dream_cache/{category}/{filename}"
             local_url = f"http://127.0.0.1:{config['port']}/file/{rel_path}"
             self._send_json({
                 "success": True,
@@ -1401,7 +1422,7 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
                 cache_dir = os.path.join(base_root, category)
             else:
                 base_root = config["save_path"]
-                cache_dir = os.path.join(base_root, '.tapnow_cache', category)
+                cache_dir = os.path.join(base_root, '.dream_cache', category)
             ensure_dir(cache_dir)
             if ',' in content:
                 content = content.split(',', 1)[1]
@@ -1420,13 +1441,13 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
             except ValueError:
                 rel_path = os.path.relpath(filepath, cache_dir).replace('\\', '/')
                 if base_root == config["save_path"]:
-                    rel_path = f".tapnow_cache/{category}/{rel_path}"
+                    rel_path = f".dream_cache/{category}/{rel_path}"
                 else:
                     rel_path = f"{category}/{rel_path}"
             if rel_path.startswith('..'):
                 rel_path = os.path.relpath(filepath, cache_dir).replace('\\', '/')
                 if base_root == config["save_path"]:
-                    rel_path = f".tapnow_cache/{category}/{rel_path}"
+                    rel_path = f".dream_cache/{category}/{rel_path}"
                 else:
                     rel_path = f"{category}/{rel_path}"
             local_url = f"http://127.0.0.1:{config['port']}/file/{rel_path}"
@@ -1441,24 +1462,100 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"success": False, "error": str(e)}, 500)
 
-    def handle_file_serve(self, rel_path):
-        rel_path = normalize_rel_path(rel_path)
-        if not rel_path:
-            self.send_response(400); self.end_headers(); return
-        candidates = [
-            os.path.join(config["save_path"], rel_path),
-        ]
-        if config["image_save_path"]:
-            candidates.append(os.path.join(config["image_save_path"], rel_path))
-        if config["video_save_path"]:
-            candidates.append(os.path.join(config["video_save_path"], rel_path))
-        filepath = None
-        for candidate in candidates:
-            if os.path.exists(candidate) and os.path.isfile(candidate):
-                filepath = candidate
-                break
-        if not filepath:
-            self.send_response(404); self.end_headers(); return
+    def handle_folder_loop_scan(self, data):
+        try:
+            raw_path = str(data.get('path', '')).strip()
+            if not raw_path:
+                self._send_json({"success": False, "error": "缺少文件夹路径"}, 400)
+                return
+            folder_path = os.path.abspath(os.path.expanduser(raw_path))
+            if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+                self._send_json({"success": False, "error": "文件夹不存在"}, 404)
+                return
+
+            files = []
+            for filename in os.listdir(folder_path):
+                filepath = os.path.join(folder_path, filename)
+                if not os.path.isfile(filepath) or not is_image_file(filename):
+                    continue
+                try:
+                    stat = os.stat(filepath)
+                except OSError:
+                    continue
+                files.append({
+                    "filename": filename,
+                    "path": filepath.replace('\\', '/'),
+                    "size": stat.st_size,
+                    "mtime": stat.st_mtime,
+                })
+
+            files.sort(key=lambda item: natural_sort_key(item["filename"]))
+            scan_id = str(uuid.uuid4())
+            for idx, item in enumerate(files):
+                item["index"] = idx
+                item["rel_path"] = item["filename"]
+                item["url"] = f"http://127.0.0.1:{config['port']}/folder-loop/file?scan_id={scan_id}&index={idx}"
+
+            with FOLDER_LOOP_LOCK:
+                FOLDER_LOOP_SCANS[scan_id] = {
+                    "base_path": folder_path,
+                    "created_at": time.time(),
+                    "files": files,
+                }
+                # Keep the in-memory registry bounded.
+                stale_ids = [
+                    sid for sid, scan in FOLDER_LOOP_SCANS.items()
+                    if time.time() - scan.get("created_at", 0) > 60 * 60 * 6
+                ]
+                for sid in stale_ids:
+                    FOLDER_LOOP_SCANS.pop(sid, None)
+
+            self._send_json({
+                "success": True,
+                "scan_id": scan_id,
+                "base_path": folder_path.replace('\\', '/'),
+                "files": files,
+                "count": len(files),
+            })
+        except Exception as e:
+            self._send_json({"success": False, "error": str(e)}, 500)
+
+    def handle_folder_loop_file(self, parsed):
+        params = parse_qs(parsed.query or '')
+        scan_id = params.get('scan_id', [''])[0]
+        try:
+            index = int(params.get('index', ['-1'])[0])
+        except Exception:
+            index = -1
+        with FOLDER_LOOP_LOCK:
+            scan = FOLDER_LOOP_SCANS.get(scan_id)
+        if not scan or index < 0 or index >= len(scan.get("files", [])):
+            self.send_response(404)
+            self._send_cors()
+            self.end_headers()
+            return
+        filepath = scan["files"][index].get("path", "")
+        filepath = os.path.abspath(os.path.expanduser(filepath))
+        base_path = os.path.abspath(scan.get("base_path", ""))
+        try:
+            if os.path.commonpath([os.path.normcase(filepath), os.path.normcase(base_path)]) != os.path.normcase(base_path):
+                self.send_response(403)
+                self._send_cors()
+                self.end_headers()
+                return
+        except Exception:
+            self.send_response(403)
+            self._send_cors()
+            self.end_headers()
+            return
+        if not os.path.isfile(filepath) or not is_image_file(filepath):
+            self.send_response(404)
+            self._send_cors()
+            self.end_headers()
+            return
+        self._serve_absolute_file(filepath)
+
+    def _serve_absolute_file(self, filepath):
         try:
             stat = os.stat(filepath)
             etag = f"\"{int(stat.st_mtime)}-{stat.st_size}\""
@@ -1473,13 +1570,7 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
                 return
             content_type, _ = mimetypes.guess_type(filepath)
             if not content_type:
-                if filepath.endswith('.png'): content_type = 'image/png'
-                elif filepath.endswith('.jpg') or filepath.endswith('.jpeg'): content_type = 'image/jpeg'
-                elif filepath.endswith('.webp'): content_type = 'image/webp'
-                elif filepath.endswith('.gif'): content_type = 'image/gif'
-                elif filepath.endswith('.mp4'): content_type = 'video/mp4'
-                elif filepath.endswith('.webm'): content_type = 'video/webm'
-                else: content_type = 'application/octet-stream'
+                content_type = 'application/octet-stream'
             self.send_response(200)
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Length', str(stat.st_size))
@@ -1500,9 +1591,31 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
             return
         except Exception:
             try:
-                self.send_response(500); self.end_headers()
+                self.send_response(500)
+                self._send_cors()
+                self.end_headers()
             except Exception:
                 pass
+
+    def handle_file_serve(self, rel_path):
+        rel_path = normalize_rel_path(rel_path)
+        if not rel_path:
+            self.send_response(400); self.end_headers(); return
+        candidates = [
+            os.path.join(config["save_path"], rel_path),
+        ]
+        if config["image_save_path"]:
+            candidates.append(os.path.join(config["image_save_path"], rel_path))
+        if config["video_save_path"]:
+            candidates.append(os.path.join(config["video_save_path"], rel_path))
+        filepath = None
+        for candidate in candidates:
+            if os.path.exists(candidate) and os.path.isfile(candidate):
+                filepath = candidate
+                break
+        if not filepath:
+            self.send_response(404); self.end_headers(); return
+        self._serve_absolute_file(filepath)
 
     def handle_proxy(self, parsed):
         target_url = parse_proxy_target(parsed, self.headers)
@@ -1596,7 +1709,7 @@ class TapnowFullHandler(BaseHTTPRequestHandler):
 # ==============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='Tapnow Studio Local Server v2.3')
+    parser = argparse.ArgumentParser(description='Dream Local Server 1.0.0')
     parser.add_argument('-p', '--port', type=int, default=DEFAULT_PORT, help='Port number')
     parser.add_argument('-d', '--dir', type=str, default=DEFAULT_SAVE_PATH, help='Save directory')
     args = parser.parse_args()
@@ -1620,10 +1733,10 @@ def main():
         log("ComfyUI 中间件模块已禁用 (缺少 websocket-client 或手动关闭)")
 
     # 4. 启动 HTTP 服务
-    server = ThreadingHTTPServer(('0.0.0.0', args.port), TapnowFullHandler)
+    server = ThreadingHTTPServer(('0.0.0.0', args.port), DreamFullHandler)
     
     print("=" * 60)
-    print(f"  Tapnow Local Server v2.3 running on http://127.0.0.1:{args.port}")
+    print(f"  Dream Local Server 1.0.0 running on http://127.0.0.1:{args.port}")
     print(f"  Save Path: {config['save_path']}")
     print("-" * 60)
     print("  Modules:")
