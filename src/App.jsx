@@ -65,6 +65,12 @@ import {
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import i18n from './i18n';
+import {
+    LOOP_END_NODE_TYPE,
+    getHistoryOutputMediaItems,
+    normalizeFolderLoopFiles,
+    resolveLinearLoopChain,
+} from './folderLoopUtils.js';
 
 const DEFAULT_VIEW = { x: 0, y: 0, zoom: 1 };
 const t = i18n.t.bind(i18n);
@@ -5841,6 +5847,7 @@ function DreamApp() {
     const assetBundleBlobUrlsRef = useRef(new Set());
     const [assetBundleActive, setAssetBundleActive] = useState(false);
     const autoSaveUrlCacheRef = useRef(new Map());
+    const folderLoopObjectUrlsRef = useRef(new Map());
     const normalizeLocalCacheRelPath = useCallback((value) => {
         if (!value) return '';
         return String(value).replace(/\\/g, '/').replace(/^\/+/, '');
@@ -11028,12 +11035,20 @@ function DreamApp() {
                         !(c.to === targetId && (c.inputType || 'default') === inputType)
                     ));
                 }
-                setConnections((prev) => [...prev, {
-                    id: `conn-${Date.now()}`,
-                    from: connectingSource,
-                    to: targetId,
-                    inputType: inputType !== 'default' ? inputType : undefined
-                }]);
+                setConnections((prev) => {
+                    let next = prev;
+                    const sourceNode = nodesMap.get(connectingSource);
+                    const targetNode = nodesMap.get(targetId);
+                    if (sourceNode && isForLoopNodeType(sourceNode.type) && targetNode?.type !== LOOP_END_NODE_TYPE) {
+                        next = next.filter((conn) => !(conn.from === connectingSource && nodesMap.get(conn.to)?.type === LOOP_END_NODE_TYPE));
+                    }
+                    return [...next, {
+                        id: `conn-${Date.now()}`,
+                        from: connectingSource,
+                        to: targetId,
+                        inputType: inputType !== 'default' ? inputType : undefined
+                    }];
+                });
             }
         }
         // 从输入端口连接到输出端口（新功能）
@@ -11053,12 +11068,20 @@ function DreamApp() {
                         !(c.to === connectingTarget && (c.inputType || 'default') === actualInputType)
                     ));
                 }
-                setConnections((prev) => [...prev, {
-                    id: `conn-${Date.now()}`,
-                    from: targetId,
-                    to: connectingTarget,
-                    inputType: actualInputType !== 'default' ? actualInputType : undefined
-                }]);
+                setConnections((prev) => {
+                    let next = prev;
+                    const sourceNode = nodesMap.get(targetId);
+                    const targetNode = nodesMap.get(connectingTarget);
+                    if (sourceNode && isForLoopNodeType(sourceNode.type) && targetNode?.type !== LOOP_END_NODE_TYPE) {
+                        next = next.filter((conn) => !(conn.from === targetId && nodesMap.get(conn.to)?.type === LOOP_END_NODE_TYPE));
+                    }
+                    return [...next, {
+                        id: `conn-${Date.now()}`,
+                        from: targetId,
+                        to: connectingTarget,
+                        inputType: actualInputType !== 'default' ? actualInputType : undefined
+                    }];
+                });
             }
         }
         setConnectingSource(null);
@@ -11068,7 +11091,7 @@ function DreamApp() {
         setIsPanning(false);
         setDragNodeId(null);
         setResizingNodeId(null);
-    }, [connectingSource, connectingTarget, connectingInputType, connections, touchNodeSelectionPriorityBatch]);
+    }, [connectingSource, connectingTarget, connectingInputType, connections, nodesMap, touchNodeSelectionPriorityBatch]);
 
     const handleBackgroundClick = (e) => {
         if (connectingSource) {
@@ -11156,6 +11179,10 @@ function DreamApp() {
                 addMedia(sourceNode.frames?.[0]?.url, 'image');
             }
         } else if (isForLoopNodeType(sourceNode.type)) {
+            if (sourceNode.settings?.currentFileUrl) {
+                addMedia(sourceNode.settings.currentFileUrl, 'image');
+                return media;
+            }
             const files = Array.isArray(sourceNode.settings?.files) ? sourceNode.settings.files : [];
             if (files.length > 0) {
                 const rawIndex = Number(sourceNode.settings?.currentIndex || 0);
@@ -19049,6 +19076,125 @@ function DreamApp() {
         return await blobToDataURL(blob);
     };
 
+    const revokeFolderLoopObjectUrls = useCallback((nodeId) => {
+        const urls = folderLoopObjectUrlsRef.current.get(nodeId);
+        if (!urls) return;
+        urls.forEach((url) => {
+            try { URL.revokeObjectURL(url); } catch (e) { }
+        });
+        folderLoopObjectUrlsRef.current.delete(nodeId);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            folderLoopObjectUrlsRef.current.forEach((urls) => {
+                urls.forEach((url) => {
+                    try { URL.revokeObjectURL(url); } catch (e) { }
+                });
+            });
+            folderLoopObjectUrlsRef.current.clear();
+        };
+    }, []);
+
+    const pickFolderLoopFilesWithInput = useCallback(() => new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = 'image/*';
+        input.setAttribute('webkitdirectory', '');
+        input.setAttribute('directory', '');
+        input.style.position = 'fixed';
+        input.style.left = '-9999px';
+        input.onchange = () => {
+            const files = Array.from(input.files || []);
+            const firstPath = files[0]?.webkitRelativePath || '';
+            const folderName = firstPath ? firstPath.split(/[\\/]/)[0] : '';
+            document.body.removeChild(input);
+            resolve({ files, folderName });
+        };
+        input.oncancel = () => {
+            document.body.removeChild(input);
+            resolve({ files: [], folderName: '', cancelled: true });
+        };
+        document.body.appendChild(input);
+        input.click();
+    }), []);
+
+    const pickFolderLoopFiles = useCallback(async () => {
+        if (window.showDirectoryPicker) {
+            try {
+                const directoryHandle = await window.showDirectoryPicker({
+                    id: 'dream-folder-loop',
+                    mode: 'read'
+                });
+                const files = [];
+                for await (const [, handle] of directoryHandle.entries()) {
+                    if (handle.kind !== 'file') continue;
+                    try {
+                        files.push(await handle.getFile());
+                    } catch (e) { }
+                }
+                return { files, folderName: directoryHandle.name || '' };
+            } catch (err) {
+                if (err?.name === 'AbortError') return { files: [], folderName: '', cancelled: true };
+                console.warn('[FolderLoop] showDirectoryPicker failed, falling back to file input:', err);
+            }
+        }
+        return pickFolderLoopFilesWithInput();
+    }, [pickFolderLoopFilesWithInput]);
+
+    const selectFolderForLoopNode = useCallback(async (nodeId) => {
+        const node = (nodesRef.current || []).find((n) => n.id === nodeId);
+        if (!node) return [];
+        if (folderLoopRunRef.current.has(nodeId)) {
+            showToast('For 循环正在运行，不能更换文件夹', 'warning');
+            return Array.isArray(node.settings?.files) ? node.settings.files : [];
+        }
+        updateNodeSettings(nodeId, { status: 'selecting', errors: [] });
+        try {
+            const picked = await pickFolderLoopFiles();
+            if (picked.cancelled) {
+                updateNodeSettings(nodeId, { status: node.settings?.files?.length ? 'ready' : 'idle' });
+                return Array.isArray(node.settings?.files) ? node.settings.files : [];
+            }
+            const createdUrls = new Set();
+            const files = normalizeFolderLoopFiles(picked.files, (file) => {
+                const url = URL.createObjectURL(file);
+                createdUrls.add(url);
+                return url;
+            });
+            revokeFolderLoopObjectUrls(nodeId);
+            folderLoopObjectUrlsRef.current.set(nodeId, createdUrls);
+            updateNodeSettings(nodeId, {
+                files,
+                folderName: picked.folderName || 'Selected folder',
+                folderPath: '',
+                scanId: '',
+                basePath: picked.folderName || '',
+                sourceFolderNodeId: '',
+                currentIndex: 0,
+                completedCount: 0,
+                activeTaskId: '',
+                activeFilename: '',
+                currentFileUrl: '',
+                currentFileName: '',
+                errors: [],
+                status: files.length > 0 ? 'ready' : 'empty',
+                lastScanAt: new Date().toLocaleString(),
+                selectionMode: 'browser-folder'
+            });
+            showToast(`已读取 ${files.length} 个图像文件`, files.length > 0 ? 'success' : 'warning');
+            return files;
+        } catch (err) {
+            updateNodeSettings(nodeId, {
+                status: 'failed',
+                errors: [{ index: -1, filename: '', error: err.message || '选择文件夹失败' }]
+            });
+            showToast(`选择文件夹失败: ${err.message || '未知错误'}`, 'error');
+            return [];
+        }
+    }, [pickFolderLoopFiles, revokeFolderLoopObjectUrls, showToast, updateNodeSettings]);
+
     const waitForFolderLoopTask = useCallback((taskId, timeoutMs = 1000 * 60 * 45) => {
         const startedAt = Date.now();
         let sawTask = false;
@@ -19075,79 +19221,29 @@ function DreamApp() {
         });
     }, []);
 
-    const getFolderLoopTargetNode = useCallback((nodeId) => {
-        const conns = (connectionsRef.current || []).filter((conn) => conn.from === nodeId);
-        for (const conn of conns) {
-            const target = (nodesRef.current || []).find((n) => n.id === conn.to);
-            if (target && (target.type === 'gen-image' || target.type === 'gen-video')) return target;
-        }
-        return null;
+    const getFolderLoopChain = useCallback((nodeId) => {
+        return resolveLinearLoopChain(nodesRef.current || [], connectionsRef.current || [], nodeId);
     }, []);
 
+    const getFolderLoopTargetNode = useCallback((nodeId) => {
+        const chain = getFolderLoopChain(nodeId);
+        if (!chain.ok) return null;
+        return chain.nodes.find((node) => node.type === 'gen-image' || node.type === 'gen-video') || null;
+    }, [getFolderLoopChain]);
+
     const getFolderLoopInputFolder = useCallback((nodeId) => {
-        const conns = (connectionsRef.current || []).filter((conn) => conn.to === nodeId);
-        for (const conn of conns) {
-            const source = (nodesRef.current || []).find((n) => n.id === conn.from);
-            if (source?.type !== FOLDER_INPUT_NODE_TYPE) continue;
-            const folderPath = String(source.settings?.folderPath || source.content || '').trim();
-            if (folderPath) {
-                return { folderPath, sourceNodeId: source.id, sourceNode: source };
-            }
-        }
         const node = (nodesRef.current || []).find((n) => n.id === nodeId);
-        const fallbackPath = String(node?.settings?.folderPath || '').trim();
-        return { folderPath: fallbackPath, sourceNodeId: '', sourceNode: null };
+        return {
+            folderPath: '',
+            folderName: node?.settings?.folderName || '',
+            sourceNodeId: '',
+            sourceNode: null
+        };
     }, []);
 
     const scanFolderLoopNode = useCallback(async (nodeId) => {
-        const node = (nodesRef.current || []).find((n) => n.id === nodeId);
-        const { folderPath, sourceNodeId } = getFolderLoopInputFolder(nodeId);
-        const baseUrl = (node?.settings?.serverUrl || localServerUrl || '').trim().replace(/\/+$/, '');
-        if (!folderPath) {
-            showToast('请先连接选择文件夹节点或输入备用路径', 'warning');
-            return [];
-        }
-        if (!baseUrl) {
-            showToast('本地服务地址为空', 'error');
-            return [];
-        }
-        updateNodeSettings(nodeId, { status: 'scanning', errors: [] });
-        try {
-            const res = await fetch(`${baseUrl}/folder-loop/scan`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: folderPath })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data?.success === false) {
-                throw new Error(data?.error || `HTTP ${res.status}`);
-            }
-            const files = Array.isArray(data.files) ? data.files : [];
-            updateNodeSettings(nodeId, {
-                files,
-                scanId: data.scan_id || '',
-                basePath: data.base_path || folderPath,
-                folderPath,
-                sourceFolderNodeId: sourceNodeId,
-                currentIndex: 0,
-                completedCount: 0,
-                activeTaskId: '',
-                activeFilename: '',
-                errors: [],
-                status: files.length > 0 ? 'ready' : 'empty',
-                lastScanAt: new Date().toLocaleString()
-            });
-            showToast(`已扫描 ${files.length} 个文件`, files.length > 0 ? 'success' : 'warning');
-            return files;
-        } catch (err) {
-            updateNodeSettings(nodeId, {
-                status: 'failed',
-                errors: [{ index: -1, filename: '', error: err.message || '扫描失败' }]
-            });
-            showToast(`扫描失败: ${err.message || '未知错误'}`, 'error');
-            return [];
-        }
-    }, [getFolderLoopInputFolder, localServerUrl, showToast, updateNodeSettings]);
+        return selectFolderForLoopNode(nodeId);
+    }, [selectFolderForLoopNode]);
 
     const stopFolderLoopNode = useCallback((nodeId) => {
         const token = folderLoopRunRef.current.get(nodeId);
@@ -19169,119 +19265,209 @@ function DreamApp() {
     }, [stopFolderLoopNode, updateNodeSettings]);
 
     const runFolderLoopNode = useCallback(async (nodeId) => {
+        const startNode = (nodesRef.current || []).find((n) => n.id === nodeId);
+        if (!startNode) return;
+        const files = Array.isArray(startNode.settings?.files) ? startNode.settings.files : [];
+        if (files.length === 0) {
+            showToast('请先点击“选择文件夹”读取图像列表', 'warning');
+            return;
+        }
+        const chain = getFolderLoopChain(nodeId);
+        if (!chain.ok) {
+            showToast(chain.error || '循环链路无效', 'error');
+            updateNodeSettings(nodeId, { status: 'failed', errors: [{ index: -1, filename: '', error: chain.error || '循环链路无效' }] });
+            return;
+        }
+        const executableNodes = chain.nodes.filter((node) => ['gen-image', 'gen-video', 'local-save', 'preview'].includes(node.type));
+        if (executableNodes.length === 0) {
+            showToast('循环开始和结束之间没有图像操作节点', 'warning');
+            return;
+        }
+
         if (folderLoopRunRef.current.has(nodeId)) {
             showToast('For 循环正在运行', 'warning');
-            return;
-        }
-        let node = (nodesRef.current || []).find((n) => n.id === nodeId);
-        if (!node) return;
-        let files = Array.isArray(node.settings?.files) ? node.settings.files : [];
-        if (files.length === 0) {
-            files = await scanFolderLoopNode(nodeId);
-            node = (nodesRef.current || []).find((n) => n.id === nodeId);
-        }
-        if (files.length === 0) {
-            showToast('没有可循环的文件', 'warning');
-            return;
-        }
-        const targetNode = getFolderLoopTargetNode(nodeId);
-        if (!targetNode) {
-            showToast('请先连接到 AI 绘图或 AI 视频节点', 'warning');
-            updateNodeSettings(nodeId, { status: 'ready' });
             return;
         }
 
         const token = { cancelled: false };
         folderLoopRunRef.current.set(nodeId, token);
-        const rawStartIndex = Number(node?.settings?.currentIndex || 0);
+        const rawStartIndex = Number(startNode?.settings?.currentIndex || 0);
         const shouldRestart = !Number.isFinite(rawStartIndex) || rawStartIndex >= files.length;
         const startIndex = shouldRestart ? 0 : Math.max(0, Math.min(rawStartIndex, files.length - 1));
-        let completedCount = shouldRestart ? 0 : Number(node?.settings?.completedCount || 0);
-        let errors = shouldRestart ? [] : (Array.isArray(node?.settings?.errors) ? [...node.settings.errors] : []);
+        let completedCount = shouldRestart ? 0 : Number(startNode?.settings?.completedCount || 0);
+        let errors = shouldRestart ? [] : (Array.isArray(startNode?.settings?.errors) ? [...startNode.settings.errors] : []);
+
+        const getLoopRuntimeMedia = (targetNodeId, runtimeOutputs) => {
+            const items = [];
+            const seen = new Set();
+            const pushItem = (item) => {
+                const url = String(item?.url || '').trim();
+                if (!url) return;
+                const type = item?.type || (isVideoUrl(url) ? 'video' : 'image');
+                const key = `${type}:${url}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                items.push({ ...item, url, type });
+            };
+            (connectionsRef.current || [])
+                .filter((conn) => conn.to === targetNodeId && (!conn.inputType || conn.inputType === 'default'))
+                .forEach((conn) => {
+                    const runtime = runtimeOutputs.get(conn.from);
+                    if (runtime && runtime.length > 0) {
+                        runtime.forEach(pushItem);
+                        return;
+                    }
+                    const sourceNode = (nodesRef.current || []).find((n) => n.id === conn.from);
+                    if (!sourceNode) return;
+                    if (sourceNode.type === 'input-image' || sourceNode.type === 'preview') {
+                        if (sourceNode.content) pushItem({ url: sourceNode.content, type: isVideoUrl(sourceNode.content) ? 'video' : 'image' });
+                        if (Array.isArray(sourceNode.previewMjImages)) {
+                            sourceNode.previewMjImages.forEach((url) => pushItem({ url, type: 'image' }));
+                        }
+                    }
+                    if (sourceNode.type === 'video-input') {
+                        const frames = Array.isArray(sourceNode.selectedKeyframes) && sourceNode.selectedKeyframes.length > 0
+                            ? sourceNode.selectedKeyframes
+                            : (Array.isArray(sourceNode.frames) ? sourceNode.frames.slice(0, 1) : []);
+                        frames.forEach((frame) => pushItem({ url: frame?.url, type: 'image' }));
+                    }
+                });
+            return items;
+        };
 
         updateNodeSettings(nodeId, {
             status: 'running',
-            activeTargetNodeId: targetNode.id,
-            activeTargetType: targetNode.type
+            activeTargetNodeId: executableNodes[0]?.id || '',
+            activeTargetType: executableNodes[0]?.type || ''
         });
+        if (chain.endNode?.id) {
+            updateNodeSettings(chain.endNode.id, { status: 'waiting', sourceLoopId: nodeId });
+        }
 
         for (let index = startIndex; index < files.length; index += 1) {
             if (token.cancelled) break;
-            const currentTarget = getFolderLoopTargetNode(nodeId);
-            if (!currentTarget) {
-                errors.push({ index, filename: files[index]?.filename || '', error: '下游节点已断开' });
-                break;
-            }
             const file = files[index];
             const imageUrl = file?.url;
             if (!imageUrl) {
                 errors.push({ index, filename: file?.filename || '', error: '文件 URL 缺失' });
                 continue;
             }
-            const taskId = `for-loop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+            const runtimeOutputs = new Map();
+            runtimeOutputs.set(nodeId, [{ url: imageUrl, type: 'image', filename: file.filename || '' }]);
             updateNodeSettings(nodeId, {
                 status: 'running',
                 currentIndex: index,
-                activeTaskId: taskId,
+                activeTaskId: '',
                 activeFilename: file.filename || '',
+                currentFileUrl: imageUrl,
+                currentFileName: file.filename || '',
                 errors
             });
+
             try {
-                const basePrompt = currentTarget.type === 'gen-image'
-                    ? currentTarget.settings?.prompt || ''
-                    : currentTarget.settings?.videoPrompt || '';
-                const connectedTexts = getConnectedTextNodes(currentTarget.id);
-                const finalPrompt = connectedTexts.length > 0
-                    ? `${connectedTexts.join(' ')}${basePrompt ? ` ${basePrompt}` : ''}`
-                    : basePrompt;
-                await startGeneration(finalPrompt, currentTarget.type === 'gen-image' ? 'image' : 'video', [imageUrl], currentTarget.id, {
-                    _existingTaskId: taskId,
-                    customParams: currentTarget.settings?.customParams,
-                    imageConcurrency: normalizeImageConcurrency(
-                        currentTarget.settings?.imageConcurrency
-                        || currentTarget.settings?.concurrentImages
-                        || getApiConfigByKey(currentTarget.settings?.model)?.defaultImageConcurrency
-                        || 1
-                    )
-                });
-                const result = await waitForFolderLoopTask(taskId);
-                if (result?.status === 'failed') {
-                    errors.push({ index, filename: file.filename || '', error: result.errorMsg || '生成失败' });
-                } else {
-                    completedCount += 1;
+                for (const stepNode of chain.nodes) {
+                    if (token.cancelled) break;
+                    const inputs = getLoopRuntimeMedia(stepNode.id, runtimeOutputs);
+                    if (stepNode.type === 'gen-image' || stepNode.type === 'gen-video') {
+                        const taskId = `for-loop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                        const basePrompt = stepNode.type === 'gen-image'
+                            ? stepNode.settings?.prompt || ''
+                            : stepNode.settings?.videoPrompt || '';
+                        const connectedTexts = getConnectedTextNodes(stepNode.id);
+                        const finalPrompt = connectedTexts.length > 0
+                            ? `${connectedTexts.join(' ')}${basePrompt ? ` ${basePrompt}` : ''}`
+                            : basePrompt;
+                        const sourceImages = inputs.filter((item) => item.type === 'image').map((item) => item.url);
+                        updateNodeSettings(nodeId, {
+                            activeTaskId: taskId,
+                            activeTargetNodeId: stepNode.id,
+                            activeTargetType: stepNode.type
+                        });
+                        await startGeneration(finalPrompt, stepNode.type === 'gen-image' ? 'image' : 'video', sourceImages, stepNode.id, {
+                            _existingTaskId: taskId,
+                            customParams: stepNode.settings?.customParams,
+                            imageConcurrency: normalizeImageConcurrency(
+                                stepNode.settings?.imageConcurrency
+                                || stepNode.settings?.concurrentImages
+                                || getApiConfigByKey(stepNode.settings?.model)?.defaultImageConcurrency
+                                || 1
+                            )
+                        });
+                        const result = await waitForFolderLoopTask(taskId);
+                        if (result?.status === 'failed') {
+                            throw new Error(result.errorMsg || '生成失败');
+                        }
+                        const outputItems = getHistoryOutputMediaItems(result, stepNode.type === 'gen-video' ? 'video' : 'image');
+                        if (outputItems.length === 0) {
+                            throw new Error('生成完成但没有找到输出文件');
+                        }
+                        runtimeOutputs.set(stepNode.id, outputItems);
+                    } else if (stepNode.type === 'local-save') {
+                        await runLocalSaveBatch(stepNode, inputs, { silent: true });
+                        runtimeOutputs.set(stepNode.id, inputs);
+                    } else if (stepNode.type === 'preview') {
+                        const first = inputs[0];
+                        if (first?.url) {
+                            const previewType = first.type || (isVideoUrl(first.url) ? 'video' : 'image');
+                            setNodes((prev) => prev.map((n) => (
+                                n.id === stepNode.id
+                                    ? { ...n, content: first.url, previewType, settings: { ...n.settings, previewType } }
+                                    : n
+                            )));
+                        }
+                        runtimeOutputs.set(stepNode.id, inputs);
+                    } else {
+                        runtimeOutputs.set(stepNode.id, inputs);
+                    }
                 }
+                if (!token.cancelled) completedCount += 1;
                 updateNodeSettings(nodeId, {
                     currentIndex: index + 1,
                     completedCount,
                     activeTaskId: '',
-                    activeFilename: '',
                     errors
                 });
             } catch (err) {
-                errors.push({ index, filename: file.filename || '', error: err.message || '生成失败' });
-                updateNodeSettings(nodeId, { errors, activeTaskId: '', activeFilename: '' });
+                errors.push({ index, filename: file.filename || '', error: err.message || '循环执行失败' });
+                updateNodeSettings(nodeId, { errors, activeTaskId: '' });
             }
         }
 
         folderLoopRunRef.current.delete(nodeId);
         if (token.cancelled) {
             updateNodeSettings(nodeId, { status: 'stopped', activeTaskId: '' });
+            if (chain.endNode?.id) updateNodeSettings(chain.endNode.id, { status: 'stopped' });
             showToast('For 循环已停止', 'warning');
             return;
         }
-        updateNodeSettings(nodeId, { status: errors.length > 0 ? 'completed_with_errors' : 'completed', activeTaskId: '' });
+        updateNodeSettings(nodeId, {
+            status: errors.length > 0 ? 'completed_with_errors' : 'completed',
+            activeTaskId: '',
+            currentFileUrl: '',
+            currentFileName: ''
+        });
+        if (chain.endNode?.id) {
+            updateNodeSettings(chain.endNode.id, {
+                status: errors.length > 0 ? 'completed_with_errors' : 'completed',
+                sourceLoopId: nodeId,
+                completedCount,
+                totalCount: files.length,
+                completedAt: new Date().toLocaleString()
+            });
+        }
         showToast(`For 循环完成：${completedCount}/${files.length}`, errors.length > 0 ? 'warning' : 'success');
     }, [
-        scanFolderLoopNode,
-        getFolderLoopTargetNode,
-        getFolderLoopInputFolder,
+        getFolderLoopChain,
         updateNodeSettings,
         showToast,
         getConnectedTextNodes,
         startGeneration,
         normalizeImageConcurrency,
         getApiConfigByKey,
-        waitForFolderLoopTask
+        waitForFolderLoopTask,
+        runLocalSaveBatch,
+        getHistoryOutputMediaItems
     ]);
 
     // 功能1：批量下载选中的图片/视频节点
@@ -20798,6 +20984,79 @@ function DreamApp() {
     // --- 节点操作 ---
     const addNode = (type, worldX, worldY, sourceId, initialContent = undefined, initialDimensions = undefined, targetId = undefined, inputType = undefined) => {
         saveToUndoStack(); // V3.4.6: 保存到撤销栈
+        if (type === FOR_LOOP_NODE_TYPE) {
+            const timestamp = Date.now();
+            const startNode = {
+                id: `node-${timestamp}-loop-start`,
+                type: FOR_LOOP_NODE_TYPE,
+                x: worldX - 180,
+                y: worldY - 160,
+                width: 360,
+                height: 420,
+                content: initialContent,
+                settings: {
+                    serverUrl: localServerUrl,
+                    folderPath: '',
+                    folderName: '',
+                    files: [],
+                    scanId: '',
+                    basePath: '',
+                    sourceFolderNodeId: '',
+                    currentIndex: 0,
+                    completedCount: 0,
+                    status: 'idle',
+                    errors: [],
+                    activeTaskId: '',
+                    activeFilename: '',
+                    currentFileUrl: '',
+                    currentFileName: '',
+                    lastScanAt: '',
+                    selectionMode: 'browser-folder'
+                }
+            };
+            const endNode = {
+                id: `node-${timestamp}-loop-end`,
+                type: LOOP_END_NODE_TYPE,
+                x: worldX + 260,
+                y: worldY - 70,
+                width: 260,
+                height: 160,
+                content: undefined,
+                settings: {
+                    sourceLoopId: startNode.id,
+                    status: 'idle',
+                    completedCount: 0,
+                    totalCount: 0,
+                    completedAt: ''
+                }
+            };
+            setNodes(prev => [...prev, startNode, endNode]);
+            setConnections(prev => {
+                let next = [...prev];
+                if (sourceId) {
+                    next.push({ id: `conn-${timestamp}-source-loop`, from: sourceId, to: startNode.id });
+                }
+                next.push({ id: `conn-${timestamp}-loop-end`, from: startNode.id, to: endNode.id });
+                if (targetId) {
+                    if (inputType && inputType !== 'default') {
+                        next = next.filter((c) => !(c.to === targetId && (c.inputType || 'default') === inputType));
+                    }
+                    next.push({
+                        id: `conn-${timestamp}-loop-target`,
+                        from: endNode.id,
+                        to: targetId,
+                        inputType: inputType !== 'default' ? inputType : undefined
+                    });
+                }
+                return next;
+            });
+            setContextMenu(prev => ({ ...prev, visible: false }));
+            setContextMenuExpanded(false);
+            setConnectingSource(null);
+            setConnectingTarget(null);
+            setConnectingInputType(null);
+            return startNode;
+        }
         const defaultSize = type === 'gen-video'
             ? { w: 400, h: 500 }
             : type === 'gen-image'
@@ -20816,6 +21075,8 @@ function DreamApp() {
                                         ? { w: 340, h: 180 }
                                     : isForLoopNodeType(type)
                                         ? { w: 360, h: 420 }
+                                    : type === LOOP_END_NODE_TYPE
+                                        ? { w: 260, h: 160 }
                                     : type === 'text-node'
                                         ? { w: 280, h: 200 }
                                         : type === 'novel-input'
@@ -20916,12 +21177,24 @@ function DreamApp() {
                                                                     ? { folderPath: '' }
                                                                 : isForLoopNodeType(type)
                                                                     ? { serverUrl: localServerUrl, folderPath: '', files: [], scanId: '', basePath: '', sourceFolderNodeId: '', currentIndex: 0, completedCount: 0, status: 'idle', errors: [], activeTaskId: '', activeFilename: '', lastScanAt: '' }
+                                                                : type === LOOP_END_NODE_TYPE
+                                                                    ? { sourceLoopId: '', status: 'idle', completedCount: 0, totalCount: 0, completedAt: '' }
                                 : {},
         };
         setNodes(prev => [...prev, newNode]);
         // 从输出端口连接到新节点（原有逻辑）
         if (sourceId) {
-            setConnections(prev => [...prev, { id: `conn - ${Date.now()} `, from: sourceId, to: newNode.id }]);
+            setConnections(prev => {
+                let next = prev;
+                const sourceNode = (nodesRef.current || []).find((n) => n.id === sourceId);
+                if (sourceNode && isForLoopNodeType(sourceNode.type)) {
+                    next = next.filter((conn) => {
+                        const target = (nodesRef.current || []).find((n) => n.id === conn.to);
+                        return !(conn.from === sourceId && target?.type === LOOP_END_NODE_TYPE);
+                    });
+                }
+                return [...next, { id: `conn - ${Date.now()} `, from: sourceId, to: newNode.id }];
+            });
         }
         // 从输入端口连接到新节点（反向连接）
         if (targetId) {
@@ -26762,6 +27035,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                                                     node.type === 'local-save' ? '保存到本地' :
                                                                                                         node.type === FOLDER_INPUT_NODE_TYPE ? '选择文件夹' :
                                                                                                             isForLoopNodeType(node.type) ? 'For 循环' :
+                                                                                                                node.type === LOOP_END_NODE_TYPE ? '循环结束' :
                                                                                                         node.type || '节点'}
                         </div>
                     )}
@@ -27148,7 +27422,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             </div>
                             <div className="flex-1 flex flex-col p-3 overflow-hidden min-h-0">
                                 <div className="flex flex-col gap-3">
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="hidden">
                                         <label className="text-[10px] font-medium opacity-70">分析模型</label>
                                         {/* V3.4.10: 双层模型选择器 Provider -> Model */}
                                         <div className="relative">
@@ -28442,7 +28716,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const status = node.settings?.status || 'idle';
                         const currentIndex = Math.min(Number(node.settings?.currentIndex || 0), files.length);
                         const completedCount = Number(node.settings?.completedCount || 0);
-                        const isRunning = status === 'running' || status === 'scanning';
+                        const isRunning = status === 'running' || status === 'scanning' || status === 'selecting';
                         const targetNode = getFolderLoopTargetNode(node.id);
                         const folderInput = getFolderLoopInputFolder(node.id);
                         const folderPath = folderInput.folderPath || '';
@@ -28454,14 +28728,28 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                         <FolderOpen size={12} className="text-cyan-400" />
-                                        <span>{node.type === LEGACY_FOLDER_LOOP_NODE_TYPE ? t('文件夹循环') : t('For 循环')}</span>
+                                        <span>{node.type === LEGACY_FOLDER_LOOP_NODE_TYPE ? t('文件夹循环') : t('For 列表循环开始')}</span>
                                     </div>
                                     <span className={`text-[10px] ${status === 'running' ? 'text-green-400' : status === 'failed' ? 'text-red-400' : 'text-zinc-500'}`}>
                                         {status}
                                     </span>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col gap-3">
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                                            <span>{t('已选文件夹')}</span>
+                                            <span>{files.length} {t('张')}</span>
+                                        </div>
+                                        <div className="mt-1 text-xs truncate" title={node.settings?.folderName || ''}>
+                                            {node.settings?.folderName || t('未选择')}
+                                        </div>
+                                        {node.settings?.lastScanAt && (
+                                            <div className="mt-1 text-[10px] text-zinc-500 truncate">
+                                                {node.settings.lastScanAt}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="hidden">
                                         <label className="text-[10px] font-medium opacity-70">{t('本地服务地址')}</label>
                                         <input
                                             type="text"
@@ -28472,7 +28760,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             onMouseDown={(e) => e.stopPropagation()}
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="hidden">
                                         <div className="flex items-center justify-between">
                                             <label className="text-[10px] font-medium opacity-70">{t('输入文件夹')}</label>
                                             <span className={`text-[9px] ${usingFolderInput ? 'text-blue-400' : 'text-zinc-500'}`}>
@@ -28496,7 +28784,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onClick={() => scanFolderLoopNode(node.id)}
                                         >
-                                            {t('扫描')}
+                                            {t('选择文件夹')}
                                         </button>
                                         <button
                                             className={`py-1.5 rounded text-[10px] font-medium ${isRunning ? 'bg-zinc-600 text-white cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
@@ -28549,6 +28837,41 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {node.type === LOOP_END_NODE_TYPE && (() => {
+                        const status = node.settings?.status || 'idle';
+                        const completedCount = Number(node.settings?.completedCount || 0);
+                        const totalCount = Number(node.settings?.totalCount || 0);
+                        return (
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                                <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                                        <CheckCircle2 size={12} className="text-emerald-400" />
+                                        <span>{t('循环结束')}</span>
+                                    </div>
+                                    <span className={`text-[10px] ${status === 'completed' ? 'text-green-400' : status === 'completed_with_errors' ? 'text-amber-400' : status === 'stopped' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                        {status}
+                                    </span>
+                                </div>
+                                <div className="flex-1 p-3 flex flex-col gap-2 justify-center">
+                                    <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                                            <span>{t('循环结果')}</span>
+                                            <span>{completedCount}/{totalCount}</span>
+                                        </div>
+                                        {node.settings?.completedAt && (
+                                            <div className="mt-2 text-[10px] text-zinc-500 truncate">
+                                                {node.settings.completedAt}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="text-[10px] leading-relaxed text-zinc-500">
+                                        {t('连接到 For 循环末尾，标记循环内部图像操作的结束边界。')}
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -36321,8 +36644,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         { type: 'gen-video', label: t('AI 视频') },
                                         { type: 'image-compare', label: t('图像对比') },
                                         { type: 'preview', label: t('预览窗口') },
-                                        { type: FOLDER_INPUT_NODE_TYPE, label: t('选择文件夹') },
-                                        { type: FOR_LOOP_NODE_TYPE, label: t('For 循环') },
+                                        { type: FOR_LOOP_NODE_TYPE, label: t('For 列表循环') },
                                         { type: 'local-save', label: t('保存到本地') }
                                     ].map(item => (
                                         <div key={item.type}>

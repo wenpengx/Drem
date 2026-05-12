@@ -1,0 +1,126 @@
+export const LOOP_END_NODE_TYPE = 'loop-end';
+
+const IMAGE_FILE_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.bmp',
+  '.avif',
+  '.svg',
+]);
+
+export const isFolderLoopImageName = (name = '') => {
+  const text = String(name || '').trim().toLowerCase();
+  const dotIndex = text.lastIndexOf('.');
+  if (dotIndex < 0) return false;
+  return IMAGE_FILE_EXTENSIONS.has(text.slice(dotIndex));
+};
+
+const naturalSortKey = (value = '') => (
+  String(value)
+    .toLowerCase()
+    .split(/(\d+)/)
+    .map((part) => (/^\d+$/.test(part) ? Number(part) : part))
+);
+
+const naturalCompare = (left = '', right = '') => {
+  const a = naturalSortKey(left);
+  const b = naturalSortKey(right);
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i += 1) {
+    if (a[i] === undefined) return -1;
+    if (b[i] === undefined) return 1;
+    if (a[i] === b[i]) continue;
+    if (typeof a[i] === 'number' && typeof b[i] === 'number') {
+      return a[i] - b[i];
+    }
+    return String(a[i]).localeCompare(String(b[i]));
+  }
+  return 0;
+};
+
+export const normalizeFolderLoopFiles = (files = [], makeUrl = () => '') => (
+  Array.from(files || [])
+    .filter((file) => file && isFolderLoopImageName(file.name || file.filename))
+    .sort((a, b) => naturalCompare(a.name || a.filename, b.name || b.filename))
+    .map((file, index) => {
+      const filename = file.name || file.filename || `image-${index + 1}`;
+      return {
+        index,
+        filename,
+        name: filename,
+        size: Number(file.size || 0),
+        mtime: Number(file.lastModified || file.mtime || 0),
+        url: makeUrl(file),
+        source: 'browser-folder',
+      };
+    })
+);
+
+const buildNodeMap = (nodes = []) => new Map(
+  (Array.isArray(nodes) ? nodes : [])
+    .filter((node) => node && node.id)
+    .map((node) => [node.id, node])
+);
+
+export const resolveLinearLoopChain = (nodes = [], connections = [], startNodeId) => {
+  const nodeMap = buildNodeMap(nodes);
+  const startNode = nodeMap.get(startNodeId);
+  if (!startNode) {
+    return { ok: false, error: 'Loop start node not found', nodes: [], endNode: null };
+  }
+
+  const chain = [];
+  const visited = new Set([startNodeId]);
+  let currentId = startNodeId;
+
+  for (let guard = 0; guard < 200; guard += 1) {
+    const outgoing = (Array.isArray(connections) ? connections : [])
+      .filter((conn) => conn?.from === currentId)
+      .map((conn) => nodeMap.get(conn.to))
+      .filter(Boolean);
+
+    if (outgoing.length === 0) {
+      return { ok: false, error: 'Loop is missing a loop end node', nodes: chain, endNode: null };
+    }
+    if (outgoing.length > 1) {
+      return { ok: false, error: 'Folder loop currently supports a single path between start and end', nodes: chain, endNode: null };
+    }
+
+    const nextNode = outgoing[0];
+    if (nextNode.type === LOOP_END_NODE_TYPE) {
+      return { ok: true, error: '', nodes: chain, endNode: nextNode };
+    }
+    if (visited.has(nextNode.id)) {
+      return { ok: false, error: 'Loop path contains a cycle before the loop end node', nodes: chain, endNode: null };
+    }
+
+    visited.add(nextNode.id);
+    chain.push(nextNode);
+    currentId = nextNode.id;
+  }
+
+  return { ok: false, error: 'Loop path is too long to resolve safely', nodes: chain, endNode: null };
+};
+
+export const getHistoryOutputMediaItems = (item, fallbackType = 'image') => {
+  if (!item || typeof item !== 'object') return [];
+  const type = item.type || fallbackType;
+  const outputType = type === 'video' ? 'video' : 'image';
+  const urls = [];
+  const push = (url) => {
+    const text = String(url || '').trim();
+    if (!text || urls.includes(text)) return;
+    urls.push(text);
+  };
+
+  if (Array.isArray(item.mjImages)) item.mjImages.forEach(push);
+  if (Array.isArray(item.output_images)) item.output_images.forEach(push);
+  push(item.url);
+  push(item.originalUrl);
+  push(item.mjOriginalUrl);
+
+  return urls.map((url) => ({ url, type: outputType }));
+};
