@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   LOOP_END_NODE_TYPE,
+  getFirstFolderLoopActionNode,
   getFolderLoopPreviewFiles,
   getRunnableFolderLoopNode,
   getHistoryOutputMediaItems,
@@ -122,6 +123,20 @@ test('getFolderLoopPreviewFiles marks the active image and keeps filenames for t
   ]);
 });
 
+test('getFolderLoopPreviewFiles limits large folders around the active image', () => {
+  const files = Array.from({ length: 100 }, (_, index) => ({
+    index,
+    filename: `shot-${index}.png`,
+    url: `blob:shot-${index}`,
+  }));
+
+  const previews = getFolderLoopPreviewFiles(files, 50, { limit: 9 });
+
+  assert.equal(previews.length, 9);
+  assert.deepEqual(previews.map((file) => file.index), [46, 47, 48, 49, 50, 51, 52, 53, 54]);
+  assert.equal(previews[4].isActive, true);
+});
+
 test('getRunnableFolderLoopNode prefers a selected runnable loop', () => {
   const nodes = [
     { id: 'first', type: 'for-loop', settings: { files: [{ url: 'blob:first' }], status: 'ready' } },
@@ -145,6 +160,28 @@ test('getRunnableFolderLoopNode falls back to the first ready loop and skips run
   assert.equal(node.id, 'ready');
 });
 
+test('getRunnableFolderLoopNode does not fall back when selection is explicit but not runnable', () => {
+  const nodes = [
+    { id: 'selected-empty', type: 'for-loop', settings: { files: [], status: 'ready' } },
+    { id: 'ready', type: 'for-loop', settings: { files: [{ url: 'blob:ready' }], status: 'ready' } },
+  ];
+
+  const node = getRunnableFolderLoopNode(nodes, ['selected-empty']);
+
+  assert.equal(node, null);
+});
+
+test('getRunnableFolderLoopNode does not pick between multiple unselected runnable loops', () => {
+  const nodes = [
+    { id: 'first', type: 'for-loop', settings: { files: [{ url: 'blob:first' }], status: 'ready' } },
+    { id: 'second', type: 'for-loop', settings: { files: [{ url: 'blob:second' }], status: 'ready' } },
+  ];
+
+  const node = getRunnableFolderLoopNode(nodes, []);
+
+  assert.equal(node, null);
+});
+
 test('rewireLoopEndAfterConnection moves the loop end after an inserted downstream node', () => {
   const nodes = [
     { id: 'start', type: 'for-loop' },
@@ -160,4 +197,32 @@ test('rewireLoopEndAfterConnection moves the loop end after an inserted downstre
   assert.deepEqual(rewired, [
     { id: 'image-end', from: 'image', to: 'end' },
   ]);
+});
+
+test('rewireLoopEndAfterConnection rejects a second direct branch from the loop start', () => {
+  const nodes = [
+    { id: 'start', type: 'for-loop' },
+    { id: 'first', type: 'gen-image' },
+    { id: 'second', type: 'gen-video' },
+    { id: 'end', type: LOOP_END_NODE_TYPE },
+  ];
+  const connections = [
+    { id: 'start-first', from: 'start', to: 'first' },
+    { id: 'first-end', from: 'first', to: 'end' },
+  ];
+
+  const rewired = rewireLoopEndAfterConnection(connections, nodes, 'start', 'second', () => 'second-end');
+
+  assert.equal(rewired, null);
+});
+
+test('getFirstFolderLoopActionNode recognizes non-generation loop actions', () => {
+  const chainNodes = [
+    { id: 'save', type: 'local-save' },
+    { id: 'preview', type: 'preview' },
+  ];
+
+  const node = getFirstFolderLoopActionNode(chainNodes);
+
+  assert.equal(node.id, 'save');
 });

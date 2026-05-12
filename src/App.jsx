@@ -67,6 +67,7 @@ import { saveAs } from 'file-saver';
 import i18n from './i18n';
 import {
     LOOP_END_NODE_TYPE,
+    getFirstFolderLoopActionNode,
     getFolderLoopPreviewFiles,
     getRunnableFolderLoopNode,
     getHistoryOutputMediaItems,
@@ -83,6 +84,13 @@ const FOLDER_INPUT_NODE_TYPE = 'folder-input';
 const FOR_LOOP_NODE_TYPE = 'for-loop';
 const LEGACY_FOLDER_LOOP_NODE_TYPE = 'folder-loop';
 const isForLoopNodeType = (type) => type === FOR_LOOP_NODE_TYPE || type === LEGACY_FOLDER_LOOP_NODE_TYPE;
+const getFolderLoopActionLabel = (nodeType) => {
+    if (nodeType === 'gen-image') return 'AI 绘图';
+    if (nodeType === 'gen-video') return 'AI 视频';
+    if (nodeType === 'local-save') return '保存到本地';
+    if (nodeType === 'preview') return '预览窗口';
+    return '下游节点';
+};
 
 const migrateLegacyBrowserStorage = () => {
     try {
@@ -11050,6 +11058,10 @@ function DreamApp() {
                             targetId,
                             () => `conn-${Date.now()}-loop-end`
                         );
+                        if (!next) {
+                            showToast('For 列表循环已连接下游，请从循环内部最后一个节点继续连接', 'warning');
+                            return prev;
+                        }
                     }
                     return [...next, {
                         id: `conn-${Date.now()}`,
@@ -11089,6 +11101,10 @@ function DreamApp() {
                             connectingTarget,
                             () => `conn-${Date.now()}-loop-end`
                         );
+                        if (!next) {
+                            showToast('For 列表循环已连接下游，请从循环内部最后一个节点继续连接', 'warning');
+                            return prev;
+                        }
                     }
                     return [...next, {
                         id: `conn-${Date.now()}`,
@@ -19243,7 +19259,7 @@ function DreamApp() {
     const getFolderLoopTargetNode = useCallback((nodeId) => {
         const chain = getFolderLoopChain(nodeId);
         if (!chain.ok) return null;
-        return chain.nodes.find((node) => node.type === 'gen-image' || node.type === 'gen-video') || null;
+        return getFirstFolderLoopActionNode(chain.nodes);
     }, [getFolderLoopChain]);
 
     const getFolderLoopInputFolder = useCallback((nodeId) => {
@@ -21231,6 +21247,10 @@ function DreamApp() {
                         newNode.id,
                         () => `conn-${Date.now()}-loop-end`
                     );
+                    if (!next) {
+                        showToast('For 列表循环已连接下游，请从循环内部最后一个节点继续连接', 'warning');
+                        return prev;
+                    }
                 }
                 return [...next, { id: `conn - ${Date.now()} `, from: sourceId, to: newNode.id }];
             });
@@ -28836,7 +28856,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     </div>
                                     <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
                                         <div className="flex items-center justify-between text-[10px] text-zinc-500">
-                                            <span>{targetNode ? `${t('下游')}: ${targetNode.type === 'gen-image' ? t('AI 绘图') : t('AI 视频')}` : t('未连接下游节点')}</span>
+                                            <span>{targetNode ? `${t('下游')}: ${t(getFolderLoopActionLabel(targetNode.type))}` : t('未连接下游节点')}</span>
                                             <span>{completedCount}/{files.length}</span>
                                         </div>
                                         <div className="mt-2 h-1.5 rounded bg-zinc-700/30 overflow-hidden">

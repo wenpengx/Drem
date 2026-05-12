@@ -11,6 +11,13 @@ const IMAGE_FILE_EXTENSIONS = new Set([
   '.svg',
 ]);
 
+const FOLDER_LOOP_ACTION_NODE_TYPES = new Set([
+  'gen-image',
+  'gen-video',
+  'local-save',
+  'preview',
+]);
+
 export const isFolderLoopImageName = (name = '') => {
   const text = String(name || '').trim().toLowerCase();
   const dotIndex = text.lastIndexOf('.');
@@ -59,14 +66,30 @@ export const normalizeFolderLoopFiles = (files = [], makeUrl = () => '') => (
     })
 );
 
-export const getFolderLoopPreviewFiles = (files = [], activeIndex = -1) => {
+export const getFolderLoopPreviewFiles = (files = [], activeIndex = -1, options = {}) => {
   const parsedActiveIndex = Number(activeIndex);
   const hasActiveIndex = Number.isFinite(parsedActiveIndex) && parsedActiveIndex >= 0;
-
-  return Array.from(files || [])
-    .filter((file) => file && file.url)
-    .map((file, listIndex) => {
+  const allFiles = Array.from(files || []).filter((file) => file && file.url);
+  const limit = Math.max(1, Number(options.limit || 60));
+  const activeListIndex = hasActiveIndex
+    ? allFiles.findIndex((file, listIndex) => {
       const index = Number.isFinite(Number(file.index)) ? Number(file.index) : listIndex;
+      return index === parsedActiveIndex;
+    })
+    : -1;
+  let start = 0;
+  let end = Math.min(allFiles.length, limit);
+  if (allFiles.length > limit && activeListIndex >= 0) {
+    start = Math.max(0, activeListIndex - Math.floor(limit / 2));
+    end = Math.min(allFiles.length, start + limit);
+    start = Math.max(0, end - limit);
+  }
+
+  return allFiles
+    .slice(start, end)
+    .map((file, listIndex) => {
+      const originalListIndex = start + listIndex;
+      const index = Number.isFinite(Number(file.index)) ? Number(file.index) : originalListIndex;
       const filename = file.filename || file.name || `image-${index + 1}`;
       return {
         id: `${index}-${filename}`,
@@ -95,7 +118,14 @@ export const getRunnableFolderLoopNode = (nodes = [], selectedIds = [], options 
     if (isRunnable(node)) return node;
   }
 
-  return allNodes.find(isRunnable) || null;
+  if (selected.length > 0) return null;
+  const runnableNodes = allNodes.filter(isRunnable);
+  return runnableNodes.length === 1 ? runnableNodes[0] : null;
+};
+
+export const getFirstFolderLoopActionNode = (nodes = [], actionTypes = FOLDER_LOOP_ACTION_NODE_TYPES) => {
+  const allowedTypes = actionTypes instanceof Set ? actionTypes : new Set(actionTypes || []);
+  return (Array.isArray(nodes) ? nodes : []).find((node) => node && allowedTypes.has(node.type)) || null;
 };
 
 const buildNodeMap = (nodes = []) => new Map(
@@ -118,6 +148,11 @@ export const rewireLoopEndAfterConnection = (
   }
 
   const list = Array.isArray(connections) ? connections : [];
+  const directNonEndConnections = list.filter((conn) => (
+    conn?.from === startNodeId && nodeMap.get(conn.to)?.type !== LOOP_END_NODE_TYPE
+  ));
+  if (directNonEndConnections.length > 0) return null;
+
   const directLoopEndConnections = list.filter((conn) => (
     conn?.from === startNodeId && nodeMap.get(conn.to)?.type === LOOP_END_NODE_TYPE
   ));
