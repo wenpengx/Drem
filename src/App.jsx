@@ -68,6 +68,7 @@ import i18n from './i18n';
 import {
     LOOP_END_NODE_TYPE,
     getFolderLoopPreviewFiles,
+    getRunnableFolderLoopNode,
     getHistoryOutputMediaItems,
     normalizeFolderLoopFiles,
     resolveLinearLoopChain,
@@ -19471,6 +19472,27 @@ function DreamApp() {
         getHistoryOutputMediaItems
     ]);
 
+    const getSelectedFolderLoopIds = useCallback(() => {
+        const ids = [
+            ...(selectedNodeIdsRef.current ? Array.from(selectedNodeIdsRef.current) : []),
+            selectedNodeIdRef.current
+        ].filter(Boolean);
+        return Array.from(new Set(ids));
+    }, []);
+
+    const getCurrentRunnableFolderLoopNode = useCallback(() => (
+        getRunnableFolderLoopNode(nodesRef.current || [], getSelectedFolderLoopIds())
+    ), [getSelectedFolderLoopIds]);
+
+    const handleCanvasStartFolderLoop = useCallback(() => {
+        const targetNode = getCurrentRunnableFolderLoopNode();
+        if (!targetNode) {
+            showToast('请先选择文件夹，并确认 For 列表循环没有在运行', 'warning');
+            return;
+        }
+        runFolderLoopNode(targetNode.id);
+    }, [getCurrentRunnableFolderLoopNode, runFolderLoopNode, showToast]);
+
     // 功能1：批量下载选中的图片/视频节点
     const handleBatchDownload = async () => {
         // 使用ref获取最新的状态，避免闭包问题
@@ -28779,7 +28801,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             onMouseDown={(e) => e.stopPropagation()}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 gap-2">
                                         <button
                                             className={`py-1.5 rounded text-[10px] font-medium ${theme === 'dark' ? 'bg-cyan-600/25 text-cyan-200 hover:bg-cyan-600/35' : 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200'}`}
                                             disabled={isRunning}
@@ -28787,14 +28809,6 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             onClick={() => scanFolderLoopNode(node.id)}
                                         >
                                             {t('选择文件夹')}
-                                        </button>
-                                        <button
-                                            className={`py-1.5 rounded text-[10px] font-medium ${isRunning ? 'bg-zinc-600 text-white cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
-                                            disabled={isRunning || files.length === 0}
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                            onClick={() => runFolderLoopNode(node.id)}
-                                        >
-                                            {t('开始')}
                                         </button>
                                         <button
                                             className={`py-1.5 rounded text-[10px] font-medium ${theme === 'dark' ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300'}`}
@@ -34566,6 +34580,12 @@ ${inputText.substring(0, 15000)} ... (截断)
     const isPerfMode = nodes.length > 50 || globalPerformanceMode !== 'off';
     // 交互模式：正在拖拽或缩放时启用
     const isInteracting = isDragging || isPanning;
+    const canvasRunnableFolderLoopNode = useMemo(() => (
+        getRunnableFolderLoopNode(nodes, [
+            ...(selectedNodeIds ? Array.from(selectedNodeIds) : []),
+            selectedNodeId
+        ].filter(Boolean))
+    ), [nodes, selectedNodeId, selectedNodeIds]);
 
     return (
         <>
@@ -34662,6 +34682,26 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </button>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleCanvasStartFolderLoop}
+                            disabled={!canvasRunnableFolderLoopNode}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${canvasRunnableFolderLoopNode
+                                ? theme === 'dark'
+                                    ? 'bg-green-600 border-green-500 text-white hover:bg-green-500'
+                                    : theme === 'solarized'
+                                        ? 'bg-green-600 border-green-500 text-[#fdf6e3] hover:bg-green-500'
+                                        : 'bg-green-500 border-green-400 text-white hover:bg-green-600'
+                                : theme === 'dark'
+                                    ? 'bg-zinc-900/50 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                                    : theme === 'solarized'
+                                        ? 'bg-[#616161]/60 border-[#525252] text-[#fdf6e3]/60 cursor-not-allowed'
+                                        : 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed'
+                                }`}
+                            title={canvasRunnableFolderLoopNode ? t('开始运行 For 列表循环') : t('请先选择文件夹')}
+                        >
+                            <Play size={14} fill="currentColor" />
+                            <span>{t('开始')}</span>
+                        </button>
                         {/* 性能模式开关 V2.6.1 */}
                         <button
                             onClick={() => {

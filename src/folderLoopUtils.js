@@ -78,6 +78,26 @@ export const getFolderLoopPreviewFiles = (files = [], activeIndex = -1) => {
     });
 };
 
+export const getRunnableFolderLoopNode = (nodes = [], selectedIds = [], options = {}) => {
+  const loopTypes = new Set(options.loopTypes || ['for-loop', 'folder-loop']);
+  const blockedStatuses = new Set(options.blockedStatuses || ['running', 'scanning', 'selecting']);
+  const allNodes = Array.isArray(nodes) ? nodes : [];
+  const nodeMap = buildNodeMap(allNodes);
+  const selected = Array.from(selectedIds || []).filter(Boolean);
+  const isRunnable = (node) => {
+    if (!node || !loopTypes.has(node.type)) return false;
+    if (blockedStatuses.has(node.settings?.status)) return false;
+    return Array.isArray(node.settings?.files) && node.settings.files.length > 0;
+  };
+
+  for (const id of selected) {
+    const node = nodeMap.get(id);
+    if (isRunnable(node)) return node;
+  }
+
+  return allNodes.find(isRunnable) || null;
+};
+
 const buildNodeMap = (nodes = []) => new Map(
   (Array.isArray(nodes) ? nodes : [])
     .filter((node) => node && node.id)

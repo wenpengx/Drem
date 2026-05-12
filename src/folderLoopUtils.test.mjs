@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   LOOP_END_NODE_TYPE,
   getFolderLoopPreviewFiles,
+  getRunnableFolderLoopNode,
   getHistoryOutputMediaItems,
   normalizeFolderLoopFiles,
   resolveLinearLoopChain,
@@ -118,4 +119,27 @@ test('getFolderLoopPreviewFiles marks the active image and keeps filenames for t
       isActive: false,
     },
   ]);
+});
+
+test('getRunnableFolderLoopNode prefers a selected runnable loop', () => {
+  const nodes = [
+    { id: 'first', type: 'for-loop', settings: { files: [{ url: 'blob:first' }], status: 'ready' } },
+    { id: 'selected', type: 'for-loop', settings: { files: [{ url: 'blob:selected' }], status: 'idle' } },
+  ];
+
+  const node = getRunnableFolderLoopNode(nodes, ['selected']);
+
+  assert.equal(node.id, 'selected');
+});
+
+test('getRunnableFolderLoopNode falls back to the first ready loop and skips running loops', () => {
+  const nodes = [
+    { id: 'running', type: 'for-loop', settings: { files: [{ url: 'blob:running' }], status: 'running' } },
+    { id: 'empty', type: 'for-loop', settings: { files: [], status: 'ready' } },
+    { id: 'ready', type: 'folder-loop', settings: { files: [{ url: 'blob:ready' }], status: 'completed' } },
+  ];
+
+  const node = getRunnableFolderLoopNode(nodes, []);
+
+  assert.equal(node.id, 'ready');
 });
