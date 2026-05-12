@@ -67,6 +67,7 @@ import { saveAs } from 'file-saver';
 import i18n from './i18n';
 import {
     LOOP_END_NODE_TYPE,
+    getFolderLoopPreviewFiles,
     getHistoryOutputMediaItems,
     normalizeFolderLoopFiles,
     resolveLinearLoopChain,
@@ -28722,6 +28723,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const folderPath = folderInput.folderPath || '';
                         const usingFolderInput = !!folderInput.sourceNodeId;
                         const progressPct = files.length > 0 ? Math.min(100, Math.round((currentIndex / files.length) * 100)) : 0;
+                        const previewFiles = getFolderLoopPreviewFiles(files, status === 'running' ? currentIndex : -1);
 
                         return (
                             <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
@@ -28816,16 +28818,45 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             </div>
                                         )}
                                     </div>
-                                    <div className={`rounded border max-h-24 overflow-y-auto custom-scrollbar ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
-                                        {files.slice(Math.max(0, currentIndex - 1), Math.max(0, currentIndex - 1) + 5).map((file) => (
-                                            <div key={`${file.index}-${file.filename}`} className={`flex items-center gap-2 px-2 py-1.5 text-[10px] border-b last:border-b-0 ${theme === 'dark' ? 'border-zinc-800 text-zinc-300' : 'border-zinc-200 text-zinc-700'}`}>
-                                                <span className="w-6 shrink-0 text-zinc-500">#{(file.index ?? 0) + 1}</span>
-                                                <span className="truncate" title={file.path || file.filename}>{file.filename}</span>
+                                    <div className={`rounded border max-h-52 overflow-y-auto custom-scrollbar p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                        {previewFiles.length > 0 ? (
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {previewFiles.map((file) => (
+                                                    <div
+                                                        key={file.id}
+                                                        className={`min-w-0 overflow-hidden rounded border transition-colors ${file.isActive
+                                                            ? 'border-cyan-400 bg-cyan-500/10'
+                                                            : theme === 'dark'
+                                                                ? 'border-zinc-800 bg-zinc-900/80'
+                                                                : 'border-zinc-200 bg-white'
+                                                            }`}
+                                                        title={file.filename}
+                                                    >
+                                                        <div className={`relative aspect-square overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'}`}>
+                                                            <img
+                                                                src={file.url}
+                                                                alt={file.filename}
+                                                                draggable={false}
+                                                                loading="lazy"
+                                                                className="h-full w-full object-cover"
+                                                                onMouseDown={(e) => e.stopPropagation()}
+                                                            />
+                                                            <div className="absolute left-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] leading-none text-white">
+                                                                #{file.index + 1}
+                                                            </div>
+                                                        </div>
+                                                        <div className={`truncate px-1.5 py-1 text-[9px] ${file.isActive ? 'text-cyan-300' : theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                                                            {file.filename}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        ) : (
+                                            <div className="text-[10px] text-zinc-500">{t('扫描后会在这里显示图像预览')}</div>
+                                        )}
                                     </div>
                                     {files.length === 0 && (
-                                        <div className="text-[10px] text-zinc-500">{t('扫描后会在这里显示文件列表')}</div>
+                                        <div className="text-[10px] text-zinc-500">{t('选择文件夹后会在这里显示缩略图')}</div>
                                     )}
                                     {errors.length > 0 && (
                                         <div className="text-[10px] text-red-400 space-y-1">

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   LOOP_END_NODE_TYPE,
+  getFolderLoopPreviewFiles,
   getHistoryOutputMediaItems,
   normalizeFolderLoopFiles,
   resolveLinearLoopChain,
@@ -84,5 +85,37 @@ test('getHistoryOutputMediaItems extracts image and video outputs for chaining',
     url: 'https://example.com/movie.mp4',
   }), [
     { url: 'https://example.com/movie.mp4', type: 'video' },
+  ]);
+});
+
+test('getFolderLoopPreviewFiles marks the active image and keeps filenames for thumbnails', () => {
+  const previews = getFolderLoopPreviewFiles([
+    { index: 0, filename: 'shot-1.png', url: 'blob:shot-1' },
+    { index: 1, filename: 'shot-2.png', url: 'blob:shot-2' },
+    { index: 2, filename: 'shot-3.png', url: 'blob:shot-3' },
+  ], 1);
+
+  assert.deepEqual(previews, [
+    {
+      id: '0-shot-1.png',
+      index: 0,
+      filename: 'shot-1.png',
+      url: 'blob:shot-1',
+      isActive: false,
+    },
+    {
+      id: '1-shot-2.png',
+      index: 1,
+      filename: 'shot-2.png',
+      url: 'blob:shot-2',
+      isActive: true,
+    },
+    {
+      id: '2-shot-3.png',
+      index: 2,
+      filename: 'shot-3.png',
+      url: 'blob:shot-3',
+      isActive: false,
+    },
   ]);
 });

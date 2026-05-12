@@ -59,6 +59,25 @@ export const normalizeFolderLoopFiles = (files = [], makeUrl = () => '') => (
     })
 );
 
+export const getFolderLoopPreviewFiles = (files = [], activeIndex = -1) => {
+  const parsedActiveIndex = Number(activeIndex);
+  const hasActiveIndex = Number.isFinite(parsedActiveIndex) && parsedActiveIndex >= 0;
+
+  return Array.from(files || [])
+    .filter((file) => file && file.url)
+    .map((file, listIndex) => {
+      const index = Number.isFinite(Number(file.index)) ? Number(file.index) : listIndex;
+      const filename = file.filename || file.name || `image-${index + 1}`;
+      return {
+        id: `${index}-${filename}`,
+        index,
+        filename,
+        url: file.url,
+        isActive: hasActiveIndex && index === parsedActiveIndex,
+      };
+    });
+};
+
 const buildNodeMap = (nodes = []) => new Map(
   (Array.isArray(nodes) ? nodes : [])
     .filter((node) => node && node.id)
