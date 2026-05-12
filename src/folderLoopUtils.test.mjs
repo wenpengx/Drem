@@ -104,6 +104,7 @@ test('getFolderLoopPreviewFiles marks the active image and keeps filenames for t
       index: 0,
       filename: 'shot-1.png',
       url: 'blob:shot-1',
+      sourceUrl: 'blob:shot-1',
       isActive: false,
     },
     {
@@ -111,6 +112,7 @@ test('getFolderLoopPreviewFiles marks the active image and keeps filenames for t
       index: 1,
       filename: 'shot-2.png',
       url: 'blob:shot-2',
+      sourceUrl: 'blob:shot-2',
       isActive: true,
     },
     {
@@ -118,10 +120,26 @@ test('getFolderLoopPreviewFiles marks the active image and keeps filenames for t
       index: 2,
       filename: 'shot-3.png',
       url: 'blob:shot-3',
+      sourceUrl: 'blob:shot-3',
       isActive: false,
     },
   ]);
 });
+
+test('getFolderLoopPreviewFiles prefers persistent preview URLs over blob source URLs', () => {
+  const previews = getFolderLoopPreviewFiles([
+    {
+      index: 0,
+      filename: 'shot-1.png',
+      url: 'blob:shot-1',
+      previewUrl: 'data:image/jpeg;base64,thumb',
+    },
+  ], -1);
+
+  assert.equal(previews[0].url, 'data:image/jpeg;base64,thumb');
+  assert.equal(previews[0].sourceUrl, 'blob:shot-1');
+});
+
 
 test('getFolderLoopPreviewFiles limits large folders around the active image', () => {
   const files = Array.from({ length: 100 }, (_, index) => ({

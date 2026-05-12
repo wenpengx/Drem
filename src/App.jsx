@@ -19174,6 +19174,41 @@ function DreamApp() {
         return pickFolderLoopFilesWithInput();
     }, [pickFolderLoopFilesWithInput]);
 
+    const createFolderLoopPreviewUrl = useCallback(async (file) => {
+        if (!file || !String(file.type || '').startsWith('image/')) return '';
+        const maxSize = 160;
+        try {
+            if (window.createImageBitmap) {
+                const bitmap = await window.createImageBitmap(file);
+                const maxEdge = Math.max(bitmap.width || 1, bitmap.height || 1);
+                const scale = Math.min(1, maxSize / maxEdge);
+                const width = Math.max(1, Math.round((bitmap.width || 1) * scale));
+                const height = Math.max(1, Math.round((bitmap.height || 1) * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return '';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(bitmap, 0, 0, width, height);
+                if (bitmap.close) bitmap.close();
+                return canvas.toDataURL('image/jpeg', 0.76);
+            }
+        } catch (e) { }
+        if (file.size > 512 * 1024) return '';
+        try {
+            return await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(file);
+            });
+        } catch (e) {
+            return '';
+        }
+    }, []);
+
     const selectFolderForLoopNode = useCallback(async (nodeId) => {
         const node = (nodesRef.current || []).find((n) => n.id === nodeId);
         if (!node) return [];
@@ -19189,11 +19224,17 @@ function DreamApp() {
                 return Array.isArray(node.settings?.files) ? node.settings.files : [];
             }
             const createdUrls = new Set();
-            const files = normalizeFolderLoopFiles(picked.files, (file) => {
+            const previewTasks = new Map();
+            const normalizedFiles = normalizeFolderLoopFiles(picked.files, (file) => {
                 const url = URL.createObjectURL(file);
                 createdUrls.add(url);
+                previewTasks.set(url, createFolderLoopPreviewUrl(file));
                 return url;
             });
+            const files = await Promise.all(normalizedFiles.map(async (file) => ({
+                ...file,
+                previewUrl: await (previewTasks.get(file.url) || Promise.resolve(''))
+            })));
             revokeFolderLoopObjectUrls(nodeId);
             folderLoopObjectUrlsRef.current.set(nodeId, createdUrls);
             updateNodeSettings(nodeId, {
@@ -19224,7 +19265,7 @@ function DreamApp() {
             showToast(`选择文件夹失败: ${err.message || '未知错误'}`, 'error');
             return [];
         }
-    }, [pickFolderLoopFiles, revokeFolderLoopObjectUrls, showToast, updateNodeSettings]);
+    }, [createFolderLoopPreviewUrl, pickFolderLoopFiles, revokeFolderLoopObjectUrls, showToast, updateNodeSettings]);
 
     const waitForFolderLoopTask = useCallback((taskId, timeoutMs = 1000 * 60 * 45) => {
         const startedAt = Date.now();
@@ -28887,9 +28928,18 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 src={file.url}
                                                                 alt={file.filename}
                                                                 draggable={false}
-                                                                loading="lazy"
+                                                                loading="eager"
+                                                                decoding="async"
                                                                 className="h-full w-full object-cover"
                                                                 onMouseDown={(e) => e.stopPropagation()}
+                                                                onError={(e) => {
+                                                                    const img = e.currentTarget;
+                                                                    if (file.sourceUrl && img.src !== file.sourceUrl) {
+                                                                        img.src = file.sourceUrl;
+                                                                        return;
+                                                                    }
+                                                                    img.style.opacity = '0';
+                                                                }}
                                                             />
                                                             <div className="absolute left-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] leading-none text-white">
                                                                 #{file.index + 1}

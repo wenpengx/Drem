@@ -95,7 +95,8 @@ export const getFolderLoopPreviewFiles = (files = [], activeIndex = -1, options 
         id: `${index}-${filename}`,
         index,
         filename,
-        url: file.url,
+        url: file.previewUrl || file.thumbnailUrl || file.url,
+        sourceUrl: file.url,
         isActive: hasActiveIndex && index === parsedActiveIndex,
       };
     });
