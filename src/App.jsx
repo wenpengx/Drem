@@ -71,6 +71,7 @@ import {
     getRunnableFolderLoopNode,
     getHistoryOutputMediaItems,
     normalizeFolderLoopFiles,
+    rewireLoopEndAfterConnection,
     resolveLinearLoopChain,
 } from './folderLoopUtils.js';
 
@@ -11042,7 +11043,13 @@ function DreamApp() {
                     const sourceNode = nodesMap.get(connectingSource);
                     const targetNode = nodesMap.get(targetId);
                     if (sourceNode && isForLoopNodeType(sourceNode.type) && targetNode?.type !== LOOP_END_NODE_TYPE) {
-                        next = next.filter((conn) => !(conn.from === connectingSource && nodesMap.get(conn.to)?.type === LOOP_END_NODE_TYPE));
+                        next = rewireLoopEndAfterConnection(
+                            next,
+                            nodesRef.current || [],
+                            connectingSource,
+                            targetId,
+                            () => `conn-${Date.now()}-loop-end`
+                        );
                     }
                     return [...next, {
                         id: `conn-${Date.now()}`,
@@ -11075,7 +11082,13 @@ function DreamApp() {
                     const sourceNode = nodesMap.get(targetId);
                     const targetNode = nodesMap.get(connectingTarget);
                     if (sourceNode && isForLoopNodeType(sourceNode.type) && targetNode?.type !== LOOP_END_NODE_TYPE) {
-                        next = next.filter((conn) => !(conn.from === targetId && nodesMap.get(conn.to)?.type === LOOP_END_NODE_TYPE));
+                        next = rewireLoopEndAfterConnection(
+                            next,
+                            nodesRef.current || [],
+                            targetId,
+                            connectingTarget,
+                            () => `conn-${Date.now()}-loop-end`
+                        );
                     }
                     return [...next, {
                         id: `conn-${Date.now()}`,
@@ -21211,10 +21224,13 @@ function DreamApp() {
                 let next = prev;
                 const sourceNode = (nodesRef.current || []).find((n) => n.id === sourceId);
                 if (sourceNode && isForLoopNodeType(sourceNode.type)) {
-                    next = next.filter((conn) => {
-                        const target = (nodesRef.current || []).find((n) => n.id === conn.to);
-                        return !(conn.from === sourceId && target?.type === LOOP_END_NODE_TYPE);
-                    });
+                    next = rewireLoopEndAfterConnection(
+                        next,
+                        nodesRef.current || [],
+                        sourceId,
+                        newNode.id,
+                        () => `conn-${Date.now()}-loop-end`
+                    );
                 }
                 return [...next, { id: `conn - ${Date.now()} `, from: sourceId, to: newNode.id }];
             });

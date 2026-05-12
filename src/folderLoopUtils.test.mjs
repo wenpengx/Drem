@@ -7,6 +7,7 @@ import {
   getRunnableFolderLoopNode,
   getHistoryOutputMediaItems,
   normalizeFolderLoopFiles,
+  rewireLoopEndAfterConnection,
   resolveLinearLoopChain,
 } from './folderLoopUtils.js';
 
@@ -142,4 +143,21 @@ test('getRunnableFolderLoopNode falls back to the first ready loop and skips run
   const node = getRunnableFolderLoopNode(nodes, []);
 
   assert.equal(node.id, 'ready');
+});
+
+test('rewireLoopEndAfterConnection moves the loop end after an inserted downstream node', () => {
+  const nodes = [
+    { id: 'start', type: 'for-loop' },
+    { id: 'image', type: 'gen-image' },
+    { id: 'end', type: LOOP_END_NODE_TYPE },
+  ];
+  const connections = [
+    { id: 'start-end', from: 'start', to: 'end' },
+  ];
+
+  const rewired = rewireLoopEndAfterConnection(connections, nodes, 'start', 'image', () => 'image-end');
+
+  assert.deepEqual(rewired, [
+    { id: 'image-end', from: 'image', to: 'end' },
+  ]);
 });

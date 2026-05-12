@@ -104,6 +104,42 @@ const buildNodeMap = (nodes = []) => new Map(
     .map((node) => [node.id, node])
 );
 
+export const rewireLoopEndAfterConnection = (
+  connections = [],
+  nodes = [],
+  startNodeId,
+  insertedNodeId,
+  makeId = () => `conn-${Date.now()}`
+) => {
+  const nodeMap = buildNodeMap(nodes);
+  const insertedNode = nodeMap.get(insertedNodeId);
+  if (!startNodeId || !insertedNodeId || insertedNode?.type === LOOP_END_NODE_TYPE) {
+    return Array.isArray(connections) ? connections : [];
+  }
+
+  const list = Array.isArray(connections) ? connections : [];
+  const directLoopEndConnections = list.filter((conn) => (
+    conn?.from === startNodeId && nodeMap.get(conn.to)?.type === LOOP_END_NODE_TYPE
+  ));
+  if (directLoopEndConnections.length === 0) return list;
+
+  const loopEndId = directLoopEndConnections[0].to;
+  const next = list.filter((conn) => !(
+    conn?.from === startNodeId && nodeMap.get(conn.to)?.type === LOOP_END_NODE_TYPE
+  ));
+  const alreadyConnected = next.some((conn) => conn?.from === insertedNodeId && conn?.to === loopEndId);
+  if (alreadyConnected) return next;
+
+  return [
+    ...next,
+    {
+      id: makeId(startNodeId, insertedNodeId, loopEndId),
+      from: insertedNodeId,
+      to: loopEndId,
+    },
+  ];
+};
+
 export const resolveLinearLoopChain = (nodes = [], connections = [], startNodeId) => {
   const nodeMap = buildNodeMap(nodes);
   const startNode = nodeMap.get(startNodeId);
