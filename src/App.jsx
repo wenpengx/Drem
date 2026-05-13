@@ -8069,58 +8069,6 @@ function DreamApp() {
         input.click();
     }, [localServerUrl, normalizeLocalPath, updateLocalCacheServerConfig, showToast, refreshLocalCache]);
 
-    const pickLocalSaveNodePath = useCallback(async (nodeId) => {
-        const baseUrl = (localServerUrl || '').replace(/\/+$/, '');
-        const applyPath = async (rawPath) => {
-            const normalized = normalizeLocalPath(rawPath || '');
-            if (!normalized) return false;
-            const ok = await updateLocalCacheServerConfig({ save_path: normalized }, { silent: true });
-            if (!ok) return false;
-            updateNodeSettings(nodeId, {
-                savePath: normalized,
-                serverUrl: '',
-                serverStatus: 'connected'
-            });
-            showToast('保存路径已选择', 'success', 2000);
-            return true;
-        };
-
-        if (baseUrl) {
-            try {
-                const res = await fetch(`${baseUrl}/pick-path`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data?.path) {
-                        const ok = await applyPath(data.path);
-                        if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
-                        return;
-                    }
-                }
-            } catch (e) {
-                // fallback to browser picker
-            }
-        }
-
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.setAttribute('webkitdirectory', '');
-        input.setAttribute('directory', '');
-        input.multiple = true;
-        input.onchange = async () => {
-            const file = input.files && input.files[0];
-            if (!file) return;
-            const rawPath = file.path || '';
-            if (!rawPath) {
-                showToast('浏览器无法读取本地路径，请先启动本地服务后再选择', 'warning', 3000);
-                return;
-            }
-            const folderPath = rawPath.replace(/[\\/][^\\/]+$/, '');
-            const ok = await applyPath(folderPath);
-            if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
-        };
-        input.click();
-    }, [localServerUrl, normalizeLocalPath, updateLocalCacheServerConfig, updateNodeSettings, showToast]);
-
     // V2.6.1 Feature: 性能模式缩略图生成
     useEffect(() => {
         if (performanceMode === 'off') return;
@@ -8557,6 +8505,59 @@ function DreamApp() {
     const updateNodeSettings = useCallback((id, newSettings) => {
         setNodes((prev) => prev.map((n) => n.id === id ? { ...n, settings: { ...n.settings, ...newSettings } } : n));
     }, []);
+
+    const pickLocalSaveNodePath = useCallback(async (nodeId) => {
+        const baseUrl = (localServerUrl || '').replace(/\/+$/, '');
+        const applyPath = async (rawPath) => {
+            const normalized = normalizeLocalPath(rawPath || '');
+            if (!normalized) return false;
+            const ok = await updateLocalCacheServerConfig({ save_path: normalized }, { silent: true });
+            if (!ok) return false;
+            updateNodeSettings(nodeId, {
+                savePath: normalized,
+                serverUrl: '',
+                serverStatus: 'connected'
+            });
+            showToast('保存路径已选择', 'success', 2000);
+            return true;
+        };
+
+        if (baseUrl) {
+            try {
+                const res = await fetch(`${baseUrl}/pick-path`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.path) {
+                        const ok = await applyPath(data.path);
+                        if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // fallback to browser picker
+            }
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.setAttribute('webkitdirectory', '');
+        input.setAttribute('directory', '');
+        input.multiple = true;
+        input.onchange = async () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const rawPath = file.path || '';
+            if (!rawPath) {
+                showToast('浏览器无法读取本地路径，请先启动本地服务后再选择', 'warning', 3000);
+                return;
+            }
+            const folderPath = rawPath.replace(/[\\/][^\\/]+$/, '');
+            const ok = await applyPath(folderPath);
+            if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
+        };
+        input.click();
+    }, [localServerUrl, normalizeLocalPath, updateLocalCacheServerConfig, updateNodeSettings, showToast]);
+
 
     const handleVideoFileUpload = (nodeId, file) => {
         if (!file) return;
