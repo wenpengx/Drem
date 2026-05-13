@@ -27259,12 +27259,12 @@ ${inputText.substring(0, 15000)} ... (截断)
             <div
                 key={node.id}
                 data-node-id={node.id}
-                className={`absolute rounded-xl shadow-xl transition-shadow duration-150 group flex flex-col node-wrapper ${isSelected
-                    ? 'ring-1 ring-blue-500 shadow-blue-500/20'
+                className={`absolute rounded-md shadow-sm transition-shadow duration-150 group flex flex-col node-wrapper ${isSelected
+                    ? 'ring-1 ring-sky-500 shadow-sky-500/10'
                     : isAdjacent
-                        ? 'ring-2 ring-blue-300/60 shadow-blue-300/30'
+                        ? 'ring-2 ring-sky-300/50 shadow-sky-300/20'
                         : theme === 'dark'
-                            ? 'border border-zinc-800 shadow-black/40'
+                            ? 'border border-zinc-800 shadow-black/30'
                         : theme === 'solarized'
                             ? 'border border-[#eee8d5] shadow-black/10'
                         : 'border border-zinc-200 shadow-black/10'
@@ -27465,7 +27465,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
 
                 <div
-                    className={`overflow-hidden rounded-xl flex-1 flex flex-col pointer-events-none h-full w-full relative ${theme === 'dark' ? 'bg-[#18181b]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
+                    className={`overflow-hidden rounded-md flex-1 flex flex-col pointer-events-none h-full w-full relative ${theme === 'dark' ? 'bg-[#18181b]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
                         }`}
                 >
                     {/* V2.6.1 Feature: New Node Types Rendering */}
@@ -28823,25 +28823,26 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const usingFolderInput = !!folderInput.sourceNodeId;
                         const progressPct = files.length > 0 ? Math.min(100, Math.round((currentIndex / files.length) * 100)) : 0;
                         const previewFiles = getFolderLoopPreviewFiles(files, status === 'running' ? currentIndex : -1);
+                        const loopPanelClass = `rounded-md border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/35' : 'border-zinc-200 bg-white/80'}`;
 
                         return (
-                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
-                                <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-950/90' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-50'}`}>
+                                <div className={`flex items-center justify-between px-3 py-2 border-b shrink-0 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/60' : 'border-zinc-200 bg-white/70'}`}>
                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                        <FolderOpen size={12} className="text-cyan-400" />
+                                        <FolderOpen size={12} className="text-sky-400" />
                                         <span>{node.type === LEGACY_FOLDER_LOOP_NODE_TYPE ? t('文件夹循环') : t('For 列表循环开始')}</span>
                                     </div>
-                                    <span className={`text-[10px] ${status === 'running' ? 'text-green-400' : status === 'failed' ? 'text-red-400' : 'text-zinc-500'}`}>
+                                    <span className={`rounded px-1.5 py-0.5 text-[10px] ${status === 'running' ? 'bg-emerald-500/10 text-emerald-400' : status === 'failed' ? 'bg-red-500/10 text-red-400' : 'bg-zinc-500/10 text-zinc-500'}`}>
                                         {status}
                                     </span>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col gap-3">
-                                    <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                <div className="flex-1 overflow-y-auto p-2.5 custom-scrollbar flex flex-col gap-2">
+                                    <div className={`${loopPanelClass} p-2`}>
                                         <div className="flex items-center justify-between text-[10px] text-zinc-500">
                                             <span>{t('已选文件夹')}</span>
                                             <span>{files.length} {t('张')}</span>
                                         </div>
-                                        <div className="mt-1 text-xs truncate" title={node.settings?.folderName || ''}>
+                                        <div className="mt-1 text-xs font-medium truncate" title={node.settings?.folderName || ''}>
                                             {node.settings?.folderName || t('未选择')}
                                         </div>
                                         {node.settings?.lastScanAt && (
@@ -28878,9 +28879,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             onMouseDown={(e) => e.stopPropagation()}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-2 gap-1.5">
                                         <button
-                                            className={`py-1.5 rounded text-[10px] font-medium ${theme === 'dark' ? 'bg-cyan-600/25 text-cyan-200 hover:bg-cyan-600/35' : 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200'}`}
+                                            className={`h-7 rounded-md border text-[10px] font-medium transition-colors ${theme === 'dark' ? 'border-sky-500/30 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20' : 'border-sky-500/30 bg-sky-50 text-sky-700 hover:bg-sky-100'}`}
                                             disabled={isRunning}
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onClick={() => scanFolderLoopNode(node.id)}
@@ -28888,20 +28889,20 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {t('选择文件夹')}
                                         </button>
                                         <button
-                                            className={`py-1.5 rounded text-[10px] font-medium ${theme === 'dark' ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300'}`}
+                                            className={`h-7 rounded-md border text-[10px] font-medium transition-colors ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'}`}
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onClick={() => isRunning ? stopFolderLoopNode(node.id) : resetFolderLoopNode(node.id)}
                                         >
                                             {isRunning ? t('停止') : t('重置')}
                                         </button>
                                     </div>
-                                    <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                    <div className={`${loopPanelClass} p-2`}>
                                         <div className="flex items-center justify-between text-[10px] text-zinc-500">
                                             <span>{targetNode ? `${t('下游')}: ${t(getFolderLoopActionLabel(targetNode.type))}` : t('未连接下游节点')}</span>
                                             <span>{completedCount}/{files.length}</span>
                                         </div>
-                                        <div className="mt-2 h-1.5 rounded bg-zinc-700/30 overflow-hidden">
-                                            <div className="h-full bg-cyan-500 transition-all" style={{ width: `${progressPct}%` }} />
+                                        <div className="mt-2 h-1 rounded bg-zinc-700/30 overflow-hidden">
+                                            <div className="h-full bg-sky-500 transition-all" style={{ width: `${progressPct}%` }} />
                                         </div>
                                         {node.settings?.activeFilename && (
                                             <div className="mt-2 text-[10px] text-zinc-400 truncate" title={node.settings.activeFilename}>
@@ -28909,14 +28910,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             </div>
                                         )}
                                     </div>
-                                    <div className={`rounded border max-h-52 overflow-y-auto custom-scrollbar p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                    <div className={`${loopPanelClass} max-h-52 overflow-y-auto custom-scrollbar p-2`}>
                                         {previewFiles.length > 0 ? (
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <div className="grid grid-cols-3 gap-1.5">
                                                 {previewFiles.map((file) => (
                                                     <div
                                                         key={file.id}
-                                                        className={`min-w-0 overflow-hidden rounded border transition-colors ${file.isActive
-                                                            ? 'border-cyan-400 bg-cyan-500/10'
+                                                        className={`min-w-0 overflow-hidden rounded-md border transition-colors ${file.isActive
+                                                            ? 'border-sky-400 bg-sky-500/10'
                                                             : theme === 'dark'
                                                                 ? 'border-zinc-800 bg-zinc-900/80'
                                                                 : 'border-zinc-200 bg-white'
@@ -28945,7 +28946,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 #{file.index + 1}
                                                             </div>
                                                         </div>
-                                                        <div className={`truncate px-1.5 py-1 text-[9px] ${file.isActive ? 'text-cyan-300' : theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                                                        <div className={`truncate px-1.5 py-1 text-[9px] ${file.isActive ? 'text-sky-300' : theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>
                                                             {file.filename}
                                                         </div>
                                                     </div>
@@ -28977,8 +28978,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const status = node.settings?.status || 'idle';
                         const completedCount = Number(node.settings?.completedCount || 0);
                         const totalCount = Number(node.settings?.totalCount || 0);
+                        const loopEndPanelClass = `rounded-md border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/35' : 'border-zinc-200 bg-white/80'}`;
                         return (
-                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-950/90' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-50'}`}>
                                 <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                         <CheckCircle2 size={12} className="text-emerald-400" />
@@ -28989,7 +28991,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     </span>
                                 </div>
                                 <div className="flex-1 p-3 flex flex-col gap-2 justify-center">
-                                    <div className={`rounded border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-white/70'}`}>
+                                    <div className={`${loopEndPanelClass} p-2`}>
                                         <div className="flex items-center justify-between text-[10px] text-zinc-500">
                                             <span>{t('循环结果')}</span>
                                             <span>{completedCount}/{totalCount}</span>
@@ -34672,6 +34674,40 @@ ${inputText.substring(0, 15000)} ... (截断)
             selectedNodeId
         ].filter(Boolean))
     ), [nodes, selectedNodeId, selectedNodeIds]);
+    const topBarButtonBase = 'flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors';
+    const topBarButtonClass = (state = 'default') => {
+        if (state === 'disabled') {
+            return `${topBarButtonBase} ${theme === 'dark'
+                ? 'border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed'
+                : theme === 'solarized'
+                    ? 'border-[#d7cfb2] bg-[#eee8d5] text-[#586e75]/50 cursor-not-allowed'
+                    : 'border-zinc-200 bg-zinc-50 text-zinc-400 cursor-not-allowed'
+                }`;
+        }
+        if (state === 'primary') {
+            return `${topBarButtonBase} ${theme === 'dark'
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25'
+                : theme === 'solarized'
+                    ? 'border-emerald-700/40 bg-emerald-700/15 text-emerald-800 hover:bg-emerald-700/25'
+                    : 'border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                }`;
+        }
+        if (state === 'active') {
+            return `${topBarButtonBase} ${theme === 'dark'
+                ? 'border-sky-500/40 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25'
+                : theme === 'solarized'
+                    ? 'border-[#586e75]/40 bg-[#586e75]/15 text-[#475b62] hover:bg-[#586e75]/25'
+                    : 'border-sky-500/30 bg-sky-50 text-sky-700 hover:bg-sky-100'
+                }`;
+        }
+        return `${topBarButtonBase} ${theme === 'dark'
+            ? 'border-zinc-800 bg-zinc-950/70 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900'
+            : theme === 'solarized'
+                ? 'border-[#d7cfb2] bg-[#eee8d5] text-[#586e75] hover:bg-[#e6dec8]'
+                : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
+            }`;
+    };
+    const sideToolButtonBase = 'flex h-9 w-9 items-center justify-center rounded-md border transition-colors';
 
     return (
         <>
@@ -34697,19 +34733,24 @@ ${inputText.substring(0, 15000)} ... (截断)
             >
                 {/* Top Bar */}
                 <div
-                    className={`h-12 flex items-center justify-between px-4 z-50 shrink-0 border-b transition-colors duration-300 ${theme === 'dark'
-                        ? 'bg-[#09090b] border-zinc-800'
+                    className={`h-11 flex items-center justify-between px-3 z-50 shrink-0 border-b transition-colors duration-300 ${theme === 'dark'
+                        ? 'bg-[#0b0b0d] border-zinc-800'
                     : theme === 'solarized'
                         ? 'bg-[#eee8d5] border-[#d7cfb2]'
                             : 'bg-white border-zinc-200'
                         }`}
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-md flex items-center justify-center">
-                            <Layers size={16} className="text-white" />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-7 h-7 rounded-md border flex items-center justify-center ${theme === 'dark'
+                            ? 'border-zinc-800 bg-zinc-950 text-zinc-300'
+                            : theme === 'solarized'
+                                ? 'border-[#d7cfb2] bg-[#fdf6e3] text-[#586e75]'
+                                : 'border-zinc-200 bg-zinc-50 text-zinc-700'
+                            }`}>
+                            <Layers size={15} />
                         </div>
                         <span
-                            className={`font-bold text-sm tracking-wide ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'
+                            className={`font-semibold text-sm ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'
                                 }`}
                         >
                             Dream
@@ -34767,25 +34808,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                             <Plus size={12} />
                         </button>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={handleCanvasStartFolderLoop}
                             disabled={!canvasRunnableFolderLoopNode}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${canvasRunnableFolderLoopNode
-                                ? theme === 'dark'
-                                    ? 'bg-green-600 border-green-500 text-white hover:bg-green-500'
-                                    : theme === 'solarized'
-                                        ? 'bg-green-600 border-green-500 text-[#fdf6e3] hover:bg-green-500'
-                                        : 'bg-green-500 border-green-400 text-white hover:bg-green-600'
-                                : theme === 'dark'
-                                    ? 'bg-zinc-900/50 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                                    : theme === 'solarized'
-                                        ? 'bg-[#616161]/60 border-[#525252] text-[#fdf6e3]/60 cursor-not-allowed'
-                                        : 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed'
-                                }`}
+                            className={topBarButtonClass(canvasRunnableFolderLoopNode ? 'primary' : 'disabled')}
                             title={canvasRunnableFolderLoopNode ? t('开始运行 For 列表循环') : t('请先选择文件夹')}
                         >
-                            <Play size={14} fill="currentColor" />
+                            <Play size={13} fill="currentColor" />
                             <span>{t('开始')}</span>
                         </button>
                         {/* 性能模式开关 V2.6.1 */}
@@ -34797,56 +34827,35 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 const newMode = modes[nextIdx];
                                 setGlobalPerformanceMode(newMode);
                             }}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${globalPerformanceMode !== 'off'
-                                ? theme === 'dark'
-                                    ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500'
-                                    : theme === 'solarized'
-                                        ? 'bg-blue-600 border-blue-500 text-[#fdf6e3] hover:bg-blue-500'
-                                        : 'bg-blue-500 border-blue-400 text-white hover:bg-blue-600'
-                                : theme === 'dark'
-                                    ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                                    : theme === 'solarized'
-                                        ? 'bg-[#616161] border-[#525252] text-[#fdf6e3] hover:bg-[#555555]'
-                                        : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
-                                }`}
+                            className={topBarButtonClass(globalPerformanceMode !== 'off' ? 'active' : 'default')}
                             title={
                                 globalPerformanceMode === 'ultra' ? '极致性能模式（点击关闭）'
                                     : globalPerformanceMode === 'normal' ? '普通性能模式（点击切换极致）'
                                         : '性能模式已关闭（点击开启）'
                             }
                         >
-                            <Zap size={14} className={globalPerformanceMode !== 'off' ? 'fill-current' : ''} />
+                            <Zap size={13} className={globalPerformanceMode !== 'off' ? 'fill-current' : ''} />
                             <span>{globalPerformanceMode === 'ultra' ? t('极致模式') : t('性能模式')}</span>
                         </button>
                         {/* 功能1：下载按钮 */}
                         <button
                             onClick={handleBatchDownload}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${theme === 'dark'
-                                ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                                : theme === 'solarized'
-                                    ? 'bg-[#616161] border-[#525252] text-[#fdf6e3] hover:bg-[#555555]'
-                                    : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
-                                }`}
+                            className={topBarButtonClass()}
                             title={t('批量下载选中的图片/视频节点')}
                         >
-                            <Download size={14} />
+                            <Download size={13} />
                             <span>{t('下载')}</span>
                         </button>
                         <button
                             onClick={handleToggleTheme}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${theme === 'dark'
-                                ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                                : theme === 'solarized'
-                                    ? 'bg-[#616161] border-[#525252] text-[#fdf6e3] hover:bg-[#555555]'
-                                    : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
-                                }`}
+                            className={topBarButtonClass()}
                             title={t('切换主题')}
                         >
                             {(() => {
                                 if (theme === 'light') {
                                     return (
                                         <>
-                                            <Sun size={14} className="text-amber-400" />
+                                            <Sun size={13} className="text-amber-500" />
                                             <span>{t('亮光')}</span>
                                         </>
                                     );
@@ -34854,14 +34863,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 if (theme === 'solarized') {
                                     return (
                                         <>
-                                            <Sun size={14} className="text-yellow-600" />
+                                            <Sun size={13} className="text-yellow-600" />
                                             <span>{t('日光')}</span>
                                         </>
                                     );
                                 }
                                 return (
                                     <>
-                                        <Moon size={14} className="text-blue-500" />
+                                        <Moon size={13} className="text-sky-500" />
                                         <span>{t('暗光')}</span>
                                     </>
                                 );
@@ -34869,12 +34878,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </button>
                         <button
                             onClick={() => setLanguage(prev => prev === 'zh' ? 'en' : 'zh')}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${theme === 'dark'
-                                ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                                : theme === 'solarized'
-                                    ? 'bg-[#616161] border-[#525252] text-[#fdf6e3] hover:bg-[#555555]'
-                                    : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
-                                }`}
+                            className={topBarButtonClass()}
                             title={t('切换语言')}
                         >
                             <span>{language === 'zh' ? t('中文') : t('英文')}</span>
@@ -34883,40 +34887,18 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={undo}
                             disabled={undoStack.length === 0}
-                            className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors border ${undoStack.length === 0
-                                ? theme === 'dark'
-                                    ? 'bg-zinc-900/50 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                                    : theme === 'solarized'
-                                        ? 'bg-[#616161]/60 border-[#525252] text-[#fdf6e3]/60 cursor-not-allowed'
-                                        : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-400 cursor-not-allowed' : 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed'
-                                : theme === 'dark'
-                                    ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                                    : theme === 'solarized'
-                                        ? 'bg-[#616161] border-[#525252] text-[#fdf6e3] hover:bg-[#555555]'
-                                        : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
-                                }`}
+                            className={`${topBarButtonClass(undoStack.length === 0 ? 'disabled' : 'default')} px-2`}
                             title={t('撤销 (Ctrl+Z)')}
                         >
-                            <RotateCcw size={14} />
+                            <RotateCcw size={13} />
                         </button>
                         <button
                             onClick={redo}
                             disabled={redoStack.length === 0}
-                            className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors border ${redoStack.length === 0
-                                ? theme === 'dark'
-                                    ? 'bg-zinc-900/50 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                                    : theme === 'solarized'
-                                        ? 'bg-[#616161]/60 border-[#525252] text-[#fdf6e3]/60 cursor-not-allowed'
-                                        : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-400 cursor-not-allowed' : 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed'
-                                : theme === 'dark'
-                                    ? 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800'
-                                    : theme === 'solarized'
-                                        ? 'bg-[#616161] border-[#525252] text-[#fdf6e3] hover:bg-[#555555]'
-                                        : 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200'
-                                }`}
+                            className={`${topBarButtonClass(redoStack.length === 0 ? 'disabled' : 'default')} px-2`}
                             title={t('重做 (Ctrl+Shift+Z)')}
                         >
-                            <RotateCw size={14} />
+                            <RotateCw size={13} />
                         </button>
                         <Button
                             variant="ghost"
@@ -34944,8 +34926,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                     }`}>
                     {/* Sidebar */}
                     <div
-                        className={`w-14 border-r flex flex-col items-center py-3 gap-3 z-40 shrink-0 transition-colors duration-300 ${theme === 'dark'
-                            ? 'bg-[#09090b] border-zinc-800'
+                        className={`w-12 border-r flex flex-col items-center py-2.5 gap-2 z-40 shrink-0 transition-colors duration-300 ${theme === 'dark'
+                            ? 'bg-[#0b0b0d] border-zinc-800'
                             : theme === 'solarized'
                                 ? 'bg-[#eee8d5] border-[#d7cfb2]'
                                 : 'bg-white border-zinc-200'
@@ -34953,9 +34935,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                     >
                         <button
                             onClick={autoArrangeNodes}
-                            className={`p-2.5 rounded-lg transition-all mb-2 ${theme === 'dark'
-                                ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200'
+                            className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
+                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('自动整理节点（对齐、排列、去除堆叠）')}
                         >
@@ -34969,15 +34951,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     if (tool.id === 'history') setHistoryOpen(!historyOpen);
                                     if (tool.id === 'characters') setCharactersOpen(!charactersOpen);
                                 }}
-                                className={`p-2.5 rounded-lg transition-all ${activeTool === tool.id
+                                className={`${sideToolButtonBase} ${activeTool === tool.id
                                     ? theme === 'dark'
-                                        ? 'bg-zinc-800 text-white'
+                                        ? 'border-zinc-700 bg-zinc-900 text-white'
                                         : theme === 'solarized'
-                                            ? 'bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
-                                            : 'bg-zinc-200 text-zinc-900'
+                                            ? 'border-[#586e75]/40 bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
+                                            : 'border-zinc-300 bg-zinc-100 text-zinc-900'
                                     : theme === 'dark'
-                                        ? 'text-zinc-500 hover:text-zinc-300'
-                                        : 'text-zinc-500 hover:text-zinc-800'
+                                        ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                        : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                     }`}
                             >
                                 <tool.icon size={18} />
@@ -34986,13 +34968,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <div className="flex-1"></div>
                         <button
                             onClick={() => setIsChatOpen(!isChatOpen)}
-                            className={`p-2.5 rounded-lg transition-all mb-2 ${isChatOpen
+                            className={`${sideToolButtonBase} mb-1 ${isChatOpen
                                 ? theme === 'solarized'
-                                    ? 'bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
-                                    : 'bg-blue-600 text-white'
+                                    ? 'border-[#586e75]/40 bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
+                                    : theme === 'dark'
+                                        ? 'border-sky-500/40 bg-sky-500/15 text-sky-200'
+                                        : 'border-sky-500/30 bg-sky-50 text-sky-700'
                                 : theme === 'dark'
-                                    ? 'text-zinc-500 hover:text-zinc-300'
-                                    : 'text-zinc-500 hover:text-zinc-800'
+                                    ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                    : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('AI 对话')}
                         >
@@ -35001,9 +34985,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                         {/* 功能5：保存和加载按钮 */}
                         <button
                             onClick={handleSaveProject}
-                            className={`p-2.5 rounded-lg transition-all ${theme === 'dark'
-                                ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200'
+                            className={`${sideToolButtonBase} ${theme === 'dark'
+                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('保存项目')}
                         >
@@ -35011,9 +34995,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </button>
                         <button
                             onClick={handleLoadProject}
-                            className={`p-2.5 rounded-lg transition-all mb-2 ${theme === 'dark'
-                                ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200'
+                            className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
+                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('加载项目')}
                         >
@@ -35021,9 +35005,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </button>
                         <button
                             onClick={handleImportWorkflow}
-                            className={`p-2.5 rounded-lg transition-all mb-2 ${theme === 'dark'
-                                ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200'
+                            className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
+                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('导入工作流')}
                         >
