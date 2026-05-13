@@ -8069,6 +8069,58 @@ function DreamApp() {
         input.click();
     }, [localServerUrl, normalizeLocalPath, updateLocalCacheServerConfig, showToast, refreshLocalCache]);
 
+    const pickLocalSaveNodePath = useCallback(async (nodeId) => {
+        const baseUrl = (localServerUrl || '').replace(/\/+$/, '');
+        const applyPath = async (rawPath) => {
+            const normalized = normalizeLocalPath(rawPath || '');
+            if (!normalized) return false;
+            const ok = await updateLocalCacheServerConfig({ save_path: normalized }, { silent: true });
+            if (!ok) return false;
+            updateNodeSettings(nodeId, {
+                savePath: normalized,
+                serverUrl: '',
+                serverStatus: 'connected'
+            });
+            showToast('保存路径已选择', 'success', 2000);
+            return true;
+        };
+
+        if (baseUrl) {
+            try {
+                const res = await fetch(`${baseUrl}/pick-path`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.path) {
+                        const ok = await applyPath(data.path);
+                        if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // fallback to browser picker
+            }
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.setAttribute('webkitdirectory', '');
+        input.setAttribute('directory', '');
+        input.multiple = true;
+        input.onchange = async () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const rawPath = file.path || '';
+            if (!rawPath) {
+                showToast('浏览器无法读取本地路径，请先启动本地服务后再选择', 'warning', 3000);
+                return;
+            }
+            const folderPath = rawPath.replace(/[\\/][^\\/]+$/, '');
+            const ok = await applyPath(folderPath);
+            if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
+        };
+        input.click();
+    }, [localServerUrl, normalizeLocalPath, updateLocalCacheServerConfig, updateNodeSettings, showToast]);
+
     // V2.6.1 Feature: 性能模式缩略图生成
     useEffect(() => {
         if (performanceMode === 'off') return;
@@ -10091,7 +10143,8 @@ function DreamApp() {
 
         const lastSavedKeys = node.settings?.lastSavedUrls || [];
         const subfolderScope = (node.settings?.subfolder || '').trim();
-        const dedupeScope = `${baseUrl}::${subfolderScope}`;
+        const selectedSavePath = normalizeLocalPath(node.settings?.savePath || localServerConfig.savePath || '');
+        const dedupeScope = `${baseUrl}::${selectedSavePath}::${subfolderScope}`;
         const itemsWithKeys = mediaItems.map((item) => {
             if (!item) return item;
             const rawKey = item.dedupeKey || item.originalUrl || item.url;
@@ -10114,13 +10167,24 @@ function DreamApp() {
             return;
         }
 
+        if (selectedSavePath) {
+            const ok = await updateLocalCacheServerConfig({ save_path: selectedSavePath }, { silent: true });
+            if (!ok) {
+                if (!silent) showToast('保存路径不可用，请重新选择保存文件夹', 'error');
+                return;
+            }
+        } else {
+            if (!silent) showToast('请先选择保存文件夹', 'warning');
+            return;
+        }
+
         let res;
         try {
             res = await fetch(`${baseUrl}/save-batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    files,
+                    files: files.map(file => ({ ...file, subfolder: node.settings?.subfolder || '' })),
                     subfolder: node.settings?.subfolder || ''
                 })
             });
@@ -10150,7 +10214,7 @@ function DreamApp() {
             const skipSuffix = skippedCount > 0 ? `，已跳过 ${skippedCount} 个重复` : '';
             showToast(result.message || `已保存 ${successCount} 个文件${skipSuffix}`, 'success');
         }
-    }, [buildLocalSaveFiles, getFilenameFromUrl, getItemProxyPreference, getLocalSaveBaseUrl, showToast]);
+    }, [buildLocalSaveFiles, getFilenameFromUrl, getItemProxyPreference, getLocalSaveBaseUrl, showToast, normalizeLocalPath, localServerConfig.savePath, updateLocalCacheServerConfig]);
 
     const testLocalSaveServer = useCallback(async (nodeId, rawUrl) => {
         const baseUrl = (rawUrl || localServerUrl || '').trim().replace(/\/+$/, '');
@@ -10185,7 +10249,9 @@ function DreamApp() {
 
             const lastSavedKeys = node.settings?.lastSavedUrls || [];
             const subfolderScope = (node.settings?.subfolder || '').trim();
-            const dedupeScope = `${baseUrl}::${subfolderScope}`;
+            const selectedSavePath = normalizeLocalPath(node.settings?.savePath || localServerConfig.savePath || '');
+            if (!selectedSavePath) return;
+            const dedupeScope = `${baseUrl}::${selectedSavePath}::${subfolderScope}`;
             const newItems = connectedItems.filter(item => {
                 const rawKey = item?.originalUrl || item?.url;
                 const dedupeKey = rawKey ? (getFilenameFromUrl(rawKey) || rawKey) : '';
@@ -10210,7 +10276,7 @@ function DreamApp() {
                 }
             }, 1000);
         });
-    }, [nodes, history, getLocalSaveMediaItems, runLocalSaveBatch, getLocalSaveBaseUrl, getFilenameFromUrl]);
+    }, [nodes, history, getLocalSaveMediaItems, runLocalSaveBatch, getLocalSaveBaseUrl, getFilenameFromUrl, normalizeLocalPath, localServerConfig.savePath]);
 
     const handleChatResizeStart = (e) => { e.preventDefault(); setIsResizingChat(true); };
     const [isResizingChat, setIsResizingChat] = useState(false);
@@ -21304,7 +21370,7 @@ function DreamApp() {
                                                     : (type === 'generate-character-image' || type === 'generate-scene-image')
                                                             ? { model: resolveModelKey(lastUsedImageModel), ratio: lastUsedRatio || '16:9', resolution: lastUsedImageResolution, prompt: '', referenceImages: [], chatModel: resolveModelKey(lastUsedExtractModel || ''), imageUrls: [], selectedImageIndex: null, isGenerating: false, progress: 0, error: null }
                                                             : type === 'local-save'
-                                                                ? { serverUrl: localServerUrl, savePath: '', subfolder: '', autoSave: false, serverStatus: localCacheServerConnected ? 'connected' : 'disconnected', lastSaved: null, savedFiles: [], lastSavedUrls: [] }
+                                                                ? { serverUrl: '', savePath: localServerConfig.savePath || '', subfolder: '', autoSave: false, serverStatus: localCacheServerConnected ? 'connected' : 'disconnected', lastSaved: null, savedFiles: [], lastSavedUrls: [] }
                                                                 : type === FOLDER_INPUT_NODE_TYPE
                                                                     ? { folderPath: '' }
                                                                 : isForLoopNodeType(type)
@@ -29057,6 +29123,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const serverConnected = serverUrlOverride
                             ? node.settings?.serverStatus === 'connected'
                             : localCacheServerConnected;
+                        const selectedSavePath = normalizeLocalPath(node.settings?.savePath || localServerConfig.savePath || '');
 
                         return (
                             <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
@@ -29068,27 +29135,22 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     <div className={`w-2 h-2 rounded-full ${serverConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} title={serverConnected ? "已连接本地服务" : "未连接"} />
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col gap-3">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-medium opacity-70">{t('服务器地址')}</label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="text"
-                                                value={node.settings?.serverUrl ?? ''}
-                                                onChange={(e) => updateNodeSettings(node.id, { serverUrl: e.target.value })}
-                                                placeholder={localServerUrl || 'http://127.0.0.1:9527'}
-                                                className={`flex-1 text-xs border rounded px-2 py-1.5 outline-none focus:border-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 placeholder-zinc-600' : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800 placeholder-zinc-400' : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'}`}
-                                                onMouseDown={(e) => e.stopPropagation()}
-                                            />
+                                    <div className={`rounded-md border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/35' : 'border-zinc-200 bg-white/80'}`}>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-[10px] font-medium opacity-70">{t('保存文件夹')}</span>
                                             <button
-                                                className={`px-2 py-1 text-[10px] rounded border transition-colors ${theme === 'dark'
-                                                    ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-blue-500'
-                                                    : 'bg-white border-zinc-300 text-zinc-700 hover:border-blue-500'
+                                                className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${theme === 'dark'
+                                                    ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-sky-500'
+                                                    : 'bg-white border-zinc-300 text-zinc-700 hover:border-sky-500'
                                                     }`}
                                                 onMouseDown={(e) => e.stopPropagation()}
-                                                onClick={() => testLocalSaveServer(node.id, node.settings?.serverUrl || '')}
+                                                onClick={() => pickLocalSaveNodePath(node.id)}
                                             >
-                                                {t('测试')}
+                                                {selectedSavePath ? t('更换') : t('选择文件夹')}
                                             </button>
+                                        </div>
+                                        <div className={`mt-1 text-[10px] truncate ${selectedSavePath ? (theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700') : 'text-amber-400'}`} title={selectedSavePath || ''}>
+                                            {selectedSavePath || t('未选择保存文件夹')}
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -29156,11 +29218,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 ? 'bg-green-600 hover:bg-green-500 text-white'
                                                 : 'bg-green-600 hover:bg-green-500 text-white'
                                             }`}
-                                        disabled={isSaving || pendingCount === 0}
+                                        disabled={isSaving || pendingCount === 0 || !selectedSavePath}
                                         onMouseDown={(e) => e.stopPropagation()}
                                         onClick={async () => {
                                             if (pendingCount === 0) {
                                                 showToast('暂无待保存文件', 'warning');
+                                                return;
+                                            }
+                                            if (!selectedSavePath) {
+                                                showToast('请先选择保存文件夹', 'warning');
                                                 return;
                                             }
                                             updateNodeSettings(node.id, { isSaving: true });
@@ -34701,7 +34767,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 </div>
             </div >
         );
-    }, [selectedNodeId, selectedNodeIds, hoverTargetId, nodeConnectedStatus, adjacentNodesCache, apiConfigsMap, getConnectedInputImages, theme, view, dragNodeId, connectingSource, connectingTarget, connectingInputType, deleteNode, handleNodeMouseUp, screenToWorld, setDragNodeId, setSelectedNodeId, setSelectedNodeIds, setActiveDropdown, setHoverTargetId, setConnectingSource, setConnectingTarget, setConnectingInputType, setResizingNodeId, setLightboxItem, isVideoUrl, updateNodeSettings, getConnectedTextNodes, startGeneration, scanFolderLoopNode, runFolderLoopNode, stopFolderLoopNode, resetFolderLoopNode, getFolderLoopTargetNode, getFolderLoopInputFolder, getDefaultDurationForModel, getDefaultDurationsForModel, getConnectedGenNodes, getConnectedVideoInputNode, getConnectedVideoAnalyzeNode, handleCanvasDragOver, handleGenNodeDrop, importStoryboardMarkdownTable, importStoryboardTableFromFile, mutateStoryboardTable, normalizeStoryboardTableData, openStoryboardTableCellEditor, runStoryboardTablePromptMerge, markInteraction, resolveNodeRenderZIndex, touchNodeSelectionPriority]);
+    }, [selectedNodeId, selectedNodeIds, hoverTargetId, nodeConnectedStatus, adjacentNodesCache, apiConfigsMap, getConnectedInputImages, theme, view, dragNodeId, connectingSource, connectingTarget, connectingInputType, deleteNode, handleNodeMouseUp, screenToWorld, setDragNodeId, setSelectedNodeId, setSelectedNodeIds, setActiveDropdown, setHoverTargetId, setConnectingSource, setConnectingTarget, setConnectingInputType, setResizingNodeId, setLightboxItem, isVideoUrl, updateNodeSettings, getConnectedTextNodes, startGeneration, scanFolderLoopNode, runFolderLoopNode, stopFolderLoopNode, resetFolderLoopNode, getFolderLoopTargetNode, getFolderLoopInputFolder, getDefaultDurationForModel, getDefaultDurationsForModel, getConnectedGenNodes, getConnectedVideoInputNode, getConnectedVideoAnalyzeNode, handleCanvasDragOver, handleGenNodeDrop, importStoryboardMarkdownTable, importStoryboardTableFromFile, mutateStoryboardTable, normalizeStoryboardTableData, openStoryboardTableCellEditor, runStoryboardTablePromptMerge, markInteraction, resolveNodeRenderZIndex, touchNodeSelectionPriority, pickLocalSaveNodePath, normalizeLocalPath, localServerConfig.savePath, localCacheServerConnected]);
 
     // 高性能模式：当节点数量超过 50 或手动开启时启用
     const isPerfMode = nodes.length > 50 || globalPerformanceMode !== 'off';
@@ -35272,13 +35338,27 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             ? 'bg-emerald-500/10 text-emerald-200'
                                             : 'bg-emerald-50 text-emerald-700'
                                         : theme === 'dark'
-                                            ? 'bg-red-500/10 text-red-200'
-                                            : 'bg-red-50 text-red-600'
+                                            ? 'bg-amber-500/10 text-amber-200'
+                                            : 'bg-amber-50 text-amber-700'
                                         }`}>
                                         <div className="flex items-center gap-2">
-                                            <span className={`inline-block w-2 h-2 rounded-full ${localCacheServerConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                            <span>{localCacheServerConnected ? t('本地缓存已连接 - 图片将优先从本地读取') : t('本地缓存未连接')}</span>
+                                            <span className={`inline-block w-2 h-2 rounded-full ${localCacheServerConnected ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                            <span>{localCacheServerConnected ? t('本地缓存已连接 - 图片将优先从本地读取') : t('请选择保存路径以启用本地缓存')}</span>
                                         </div>
+                                        {!localCacheServerConnected && (
+                                            <button
+                                                onClick={() => {
+                                                    setHistoryCachePanelOpen(true);
+                                                    setLocalCacheBannerVisible(false);
+                                                }}
+                                                className={`px-1.5 py-0.5 rounded border ${theme === 'dark'
+                                                    ? 'border-amber-400/30 text-amber-100 hover:bg-amber-500/10'
+                                                    : 'border-amber-300 text-amber-700 hover:bg-amber-100'
+                                                    }`}
+                                            >
+                                                {t('设置')}
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => {
                                                 setLocalCacheEnabled(false);
