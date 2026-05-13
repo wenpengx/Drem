@@ -1700,6 +1700,31 @@ const styles = `
             backface-visibility: hidden;
             contain: layout style;
             will-change: transform, left, top;
+            isolation: isolate;
+        }
+        .node-wrapper::before {
+            content: "";
+            position: absolute;
+            left: 0.5rem;
+            right: 0.5rem;
+            top: -1px;
+            height: 2px;
+            border-radius: 999px;
+            background: #52525b;
+            opacity: 0.45;
+            z-index: 45;
+            pointer-events: none;
+        }
+        .node-wrapper.node-selected::before {
+            background: #38bdf8;
+            opacity: 1;
+        }
+        .node-wrapper.node-adjacent::before {
+            background: #7dd3fc;
+            opacity: 0.9;
+        }
+        .node-wrapper:hover {
+            border-color: #71717a;
         }
         
         /* 节点内图片渲染优化 - 使用高质量渲染 */
@@ -1772,20 +1797,34 @@ const styles = `
         .theme-solarized [class*="hover:bg-zinc-200"]:hover {
             background-color: #eee8d5 !important;
         }
-        .resize-handle { cursor: nwse-resize; opacity: 0; transition: opacity 0.2s; }
+        .resize-handle { cursor: nwse-resize; opacity: 0; transition: opacity 0.16s, color 0.16s; }
         .node-wrapper:hover .resize-handle { opacity: 1; }
         
         /* 连接点样式 */
-        .connector { position: absolute; top: 50%; transform: translateY(-50%); width: 0.9rem; height: 0.9rem; background-color: #27272a; border: 1px solid #71717a; color: #a1a1aa; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: crosshair; transition: all 0.2s; z-index: 30; opacity: 0; pointer-events: auto; }
+        .connector { position: absolute; top: 50%; transform: translateY(-50%); width: 1rem; height: 1.35rem; background-color: #18181b; border: 1px solid #52525b; color: #a1a1aa; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: crosshair; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s, color 0.16s; z-index: 35; opacity: 0; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
         .node-wrapper:hover .connector { opacity: 1; }
-        .connector:hover, .connector.active { background-color: #d4d4d8; border-color: #fff; transform: translateY(-50%) scale(1.2); opacity: 1; color: #000; }
-        .connector-right { right: -0.45rem; }
+        .connector:hover, .connector.active { background-color: #0f172a; border-color: #38bdf8; transform: translateY(-50%) scale(1.04); opacity: 1; color: #e0f2fe; }
+        .connector-right { right: -0.5rem; }
+        .theme-light .connector { background-color: #ffffff; border-color: #d4d4d8; color: #71717a; box-shadow: 0 2px 8px rgba(24,24,27,0.10); }
+        .theme-light .connector:hover,
+        .theme-light .connector.active { background-color: #f8fafc; border-color: #0284c7; color: #0369a1; }
+        .theme-solarized .connector { background-color: #fdf6e3; border-color: #d7cfb2; color: #586e75; box-shadow: 0 2px 8px rgba(88,110,117,0.12); }
+        .theme-solarized .connector:hover,
+        .theme-solarized .connector.active { background-color: #eee8d5; border-color: #586e75; color: #475b62; }
         
         /* 输入点样式 */
-        .input-point { position: absolute; top: 50%; transform: translateY(-50%); left: -0.25rem; width: 0.5rem; height: 0.5rem; background-color: #52525b; border-radius: 50%; border: 1px solid #18181b; transition: all 0.2s; z-index: 20; cursor: crosshair; }
-        .node-wrapper:hover .input-point { background-color: #a1a1aa; }
-        .input-point.connected { background-color: #60a5fa; box-shadow: 0 0 6px #60a5fa; }
-        .input-point.active { background-color: #60a5fa; border-color: #fff; transform: translateY(-50%) scale(1.3); box-shadow: 0 0 8px #60a5fa; }
+        .input-point { position: absolute; top: 50%; transform: translateY(-50%); left: -0.3rem; width: 0.6rem; height: 1.15rem; background-color: #27272a; border-radius: 0.35rem; border: 1px solid #52525b; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s; z-index: 25; cursor: crosshair; opacity: 0.65; }
+        .node-wrapper:hover .input-point { background-color: #3f3f46; opacity: 1; }
+        .input-point.connected { background-color: #075985; border-color: #38bdf8; box-shadow: none; opacity: 1; }
+        .input-point.active { background-color: #0f172a; border-color: #38bdf8; transform: translateY(-50%) scale(1.08); box-shadow: 0 0 0 3px rgba(56,189,248,0.18); opacity: 1; }
+        .theme-light .input-point { background-color: #f4f4f5; border-color: #d4d4d8; }
+        .theme-light .node-wrapper:hover .input-point { background-color: #e4e4e7; }
+        .theme-light .input-point.connected { background-color: #e0f2fe; border-color: #0284c7; }
+        .theme-light .input-point.active { background-color: #f8fafc; border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2,132,199,0.14); }
+        .theme-solarized .input-point { background-color: #eee8d5; border-color: #d7cfb2; }
+        .theme-solarized .node-wrapper:hover .input-point { background-color: #e6dec8; }
+        .theme-solarized .input-point.connected,
+        .theme-solarized .input-point.active { background-color: #d7cfb2; border-color: #586e75; box-shadow: 0 0 0 3px rgba(88,110,117,0.12); }
 
         /* Lightbox & Overlay */
         .lightbox-overlay { background-color: rgba(0, 0, 0, 0.95); backdrop-filter: blur(5px); }
@@ -26985,8 +27024,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                 <div
                     key={node.id}
                     data-node-id={node.id}
-                    className={`absolute node-wrapper flex flex-col ${isSelected
-                        ? 'ring-1 ring-blue-500'
+                    className={`absolute node-wrapper flex flex-col ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
+                        ? 'ring-1 ring-sky-500'
                         : theme === 'dark'
                             ? 'border border-zinc-800'
                         : theme === 'solarized'
@@ -27002,8 +27041,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                         zIndex: nodeZIndex,
                         border: `1px solid ${theme === 'dark' ? '#3f3f46' : theme === 'solarized' ? '#eee8d5' : '#e4e4e7'}`,
                         background: theme === 'dark' ? '#18181b' : theme === 'solarized' ? '#eee8d5' : '#fff',
-                        boxShadow: 'none',
-                        borderRadius: '0',
+                        boxShadow: isSelected ? '0 0 0 1px rgba(56,189,248,0.24)' : 'none',
+                        borderRadius: '6px',
                         transform: 'translateZ(0)',
                         backfaceVisibility: 'hidden'
                     }}
@@ -27259,15 +27298,15 @@ ${inputText.substring(0, 15000)} ... (截断)
             <div
                 key={node.id}
                 data-node-id={node.id}
-                className={`absolute rounded-md shadow-sm transition-shadow duration-150 group flex flex-col node-wrapper ${isSelected
-                    ? 'ring-1 ring-sky-500 shadow-sky-500/10'
+                className={`absolute rounded-md transition-[box-shadow,border-color] duration-150 group flex flex-col node-wrapper ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
+                    ? 'border-sky-500/60 ring-1 ring-sky-500/70 shadow-[0_0_0_3px_rgba(14,165,233,0.12),0_10px_26px_rgba(0,0,0,0.22)]'
                     : isAdjacent
-                        ? 'ring-2 ring-sky-300/50 shadow-sky-300/20'
+                        ? 'border-sky-300/50 ring-1 ring-sky-300/50 shadow-[0_8px_20px_rgba(14,165,233,0.12)]'
                         : theme === 'dark'
-                            ? 'border border-zinc-800 shadow-black/30'
+                            ? 'border border-zinc-800/90 shadow-[0_8px_18px_rgba(0,0,0,0.26)]'
                         : theme === 'solarized'
-                            ? 'border border-[#eee8d5] shadow-black/10'
-                        : 'border border-zinc-200 shadow-black/10'
+                            ? 'border border-[#d7cfb2] shadow-[0_8px_18px_rgba(88,110,117,0.10)]'
+                        : 'border border-zinc-200 shadow-[0_8px_18px_rgba(24,24,27,0.08)]'
                     } ${isHoverTarget && ((connectingSource && connectingSource !== node.id) || (connectingTarget && connectingTarget !== node.id)) ? 'ring-2 ring-green-500/50' : ''} ${theme === 'dark' ? 'bg-[#18181b]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
                     }`}
                 style={{
@@ -27382,7 +27421,7 @@ ${inputText.substring(0, 15000)} ... (截断)
             >
                 <button
                     onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
-                    className={`absolute -top-2.5 -right-2.5 z-50 p-1 rounded-full shadow border opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-100 ${theme === 'dark'
+                    className={`absolute -top-2 -right-2 z-50 p-1 rounded-md shadow border opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-100 ${theme === 'dark'
                         ? 'bg-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-zinc-700 border-zinc-700'
                         : 'bg-zinc-100 text-zinc-500 hover:text-red-500 hover:bg-zinc-200 border-zinc-300'
                         }`}
@@ -27390,7 +27429,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 >
                     <X size={12} />
                 </button>
-                <div className="absolute bottom-1 right-1 w-4 h-4 z-[100] resize-handle flex items-end justify-end p-0.5" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setResizingNodeId(node.id); }}><svg width="6" height="6" viewBox="0 0 8 8" fill="none" className="text-zinc-600"><path d="M8 0L8 8L0 8" stroke="currentColor" strokeWidth="2" /></svg></div>
+                <div className="absolute bottom-1 right-1 w-4 h-4 z-[100] resize-handle flex items-end justify-end p-0.5 text-zinc-500 hover:text-sky-400" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setResizingNodeId(node.id); }}><svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M8 0L8 8L0 8" stroke="currentColor" strokeWidth="1.75" /></svg></div>
 
                 {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
                     node.type === 'image-compare' ? (
