@@ -78,10 +78,12 @@ FEATURES = {
 
 # 1.3 默认配置常量
 DEFAULT_PORT = 9527
-DEFAULT_SAVE_PATH = os.path.expanduser("~/Downloads/Dream")
+LOCALSERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(LOCALSERVER_DIR)
+DEFAULT_SAVE_PATH = os.path.abspath(os.path.join(PROJECT_ROOT, "DreamData"))
 DEFAULT_ALLOWED_ROOTS = [
-    os.path.expanduser("~/Downloads"),
-    os.path.abspath(r"D:\DreamData")
+    PROJECT_ROOT,
+    DEFAULT_SAVE_PATH
 ]
 DEFAULT_PROXY_ALLOWED_HOSTS = [
     "api.openai.com", "generativelanguage.googleapis.com", 
@@ -92,7 +94,6 @@ DEFAULT_PROXY_ALLOWED_HOSTS = [
 ]
 DEFAULT_PROXY_TIMEOUT = 300
 CONFIG_FILENAME = "dream-local-config.json"
-LOCALSERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_FILE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 PROXY_MEDIA_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
 IMAGE_FILE_EXTENSIONS = {
@@ -165,6 +166,9 @@ def load_config_file():
             data = json.load(f)
             
         # 安全更新配置，不覆盖未定义的字段
+        if data.get("save_path"): config["save_path"] = os.path.abspath(os.path.expanduser(data["save_path"]))
+        if "image_save_path" in data: config["image_save_path"] = os.path.abspath(os.path.expanduser(data["image_save_path"])) if data["image_save_path"] else ""
+        if "video_save_path" in data: config["video_save_path"] = os.path.abspath(os.path.expanduser(data["video_save_path"])) if data["video_save_path"] else ""
         if data.get("allowed_roots"): config["allowed_roots"] = data["allowed_roots"]
         if data.get("proxy_allowed_hosts"): config["proxy_allowed_hosts"] = data["proxy_allowed_hosts"]
         if data.get("proxy_timeout"): config["proxy_timeout"] = int(data["proxy_timeout"])
@@ -924,6 +928,10 @@ class DreamFullHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if path == '/pick-path':
+            self.handle_pick_path()
+            return
+
         if path == '/list-files':
             base_path = config["save_path"]
             if not os.path.exists(base_path):
@@ -1361,6 +1369,42 @@ class DreamFullHandler(BaseHTTPRequestHandler):
                 pass
         log("配置已更新")
         self._send_json({"success": True, "config": config})
+
+    def handle_pick_path(self):
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            initial_dir = config.get("save_path") or DEFAULT_SAVE_PATH
+            initial_dir = os.path.abspath(os.path.expanduser(initial_dir))
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            selected = filedialog.askdirectory(
+                parent=root,
+                initialdir=initial_dir if os.path.isdir(initial_dir) else os.path.expanduser("~"),
+                title="选择 Dream 保存文件夹"
+            )
+            root.destroy()
+
+            if not selected:
+                self._send_json({"success": True, "cancelled": True, "path": ""})
+                return
+
+            selected = os.path.abspath(os.path.expanduser(selected))
+            config["save_path"] = selected
+            ensure_dir(selected)
+            self._send_json({
+                "success": True,
+                "path": selected,
+                "config": {
+                    "save_path": config["save_path"],
+                    "image_save_path": config["image_save_path"],
+                    "video_save_path": config["video_save_path"]
+                }
+            })
+        except Exception as e:
+            self._send_json({"success": False, "error": str(e)}, 500)
 
     def handle_save_thumbnail(self, data):
         try:

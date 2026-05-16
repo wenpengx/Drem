@@ -1,7 +1,10 @@
 {
+    "save_path": "E:\\Drem\\DreamData",
+    "image_save_path": "",
+    "video_save_path": "",
     "allowed_roots": [
-        "~/Downloads",
-        "D:\\DreamData"
+        "E:\\Drem",
+        "E:\\Drem\\DreamData"
     ],
     "proxy_allowed_hosts": [
         "api.openai.com",

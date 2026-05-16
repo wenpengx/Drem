@@ -8522,40 +8522,29 @@ function DreamApp() {
             return true;
         };
 
-        if (baseUrl) {
-            try {
-                const res = await fetch(`${baseUrl}/pick-path`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data?.path) {
-                        const ok = await applyPath(data.path);
-                        if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
-                        return;
-                    }
-                }
-            } catch (e) {
-                // fallback to browser picker
-            }
+        if (!baseUrl) {
+            showToast('请先启动本地服务，再选择保存文件夹', 'warning', 3000);
+            return;
         }
 
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.setAttribute('webkitdirectory', '');
-        input.setAttribute('directory', '');
-        input.multiple = true;
-        input.onchange = async () => {
-            const file = input.files && input.files[0];
-            if (!file) return;
-            const rawPath = file.path || '';
-            if (!rawPath) {
-                showToast('浏览器无法读取本地路径，请先启动本地服务后再选择', 'warning', 3000);
+        try {
+            const res = await fetch(`${baseUrl}/pick-path`);
+            if (!res.ok) {
+                throw new Error(await res.text());
+            }
+            const data = await res.json();
+            if (data?.cancelled) return;
+            if (data?.path) {
+                const ok = await applyPath(data.path);
+                if (!ok) {
+                    showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
+                }
                 return;
             }
-            const folderPath = rawPath.replace(/[\\/][^\\/]+$/, '');
-            const ok = await applyPath(folderPath);
-            if (!ok) showToast('保存路径设置失败，请确认本地服务权限', 'error', 2500);
-        };
-        input.click();
+            showToast('未选择保存文件夹', 'warning', 2000);
+        } catch (e) {
+            showToast('无法打开文件夹选择器，请确认本地服务已启动', 'error', 3000);
+        }
     }, [localServerUrl, normalizeLocalPath, updateLocalCacheServerConfig, updateNodeSettings, showToast]);
 
 
