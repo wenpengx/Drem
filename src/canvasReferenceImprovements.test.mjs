@@ -17,3 +17,12 @@ test('connected node drop suppresses empty-canvas quick add menu', () => {
   assert.match(appSource, /connectionDropHandledRef\.current = true/);
   assert.match(appSource, /\(connectingSource \|\| connectingTarget\) && !connectionDropHandledRef\.current/);
 });
+
+test('canvas exposes workflow presets from the quick add menu', () => {
+  assert.match(appSource, /addWorkflowPreset/);
+  assert.match(appSource, /workflow-text-to-image/);
+  assert.match(appSource, /workflow-text-image-video/);
+  assert.match(appSource, /workflow-multi-angle/);
+  assert.match(appSource, /workflow-picture-book/);
+  assert.match(appSource, /conn-workflow/);
+});

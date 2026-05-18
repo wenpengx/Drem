@@ -6465,7 +6465,7 @@ function DreamApp() {
     }, [touchNodeSelectionPriorityBatch]);
 
     const [contextMenu, setContextMenu] = useState({ x: 0, y: 0, worldX: 0, worldY: 0, visible: false });
-    const [contextMenuExpanded, setContextMenuExpanded] = useState(false);
+    const [contextMenuExpanded, setContextMenuExpanded] = useState(null);
     const [selectionContextMenu, setSelectionContextMenu] = useState({ visible: false, x: 0, y: 0 });
     const [historyContextMenu, setHistoryContextMenu] = useState({ visible: false, x: 0, y: 0, worldX: 0, worldY: 0, item: null });
     const [historySendMenuOpen, setHistorySendMenuOpen] = useState(false);
@@ -21359,7 +21359,7 @@ function DreamApp() {
                                                                     ? { w: 320, h: 380 }
                                         : { w: 260, h: 260 };
         const newNode = {
-            id: `node - ${Date.now()} `,
+            id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             type,
             x: worldX - defaultSize.w / 2,
             y: worldY - defaultSize.h / 2,
@@ -21490,7 +21490,7 @@ function DreamApp() {
             });
         }
         setContextMenu(prev => ({ ...prev, visible: false }));
-        setContextMenuExpanded(false);
+        setContextMenuExpanded(null);
         setConnectingSource(null);
         setConnectingTarget(null);
         setConnectingInputType(null);
@@ -21498,6 +21498,132 @@ function DreamApp() {
     };
 
     // V2.6.1: 角色/场景提示词生成与自动流程
+    const addWorkflowPreset = (presetType, worldX, worldY, sourceId, targetId, inputType) => {
+        const baseX = worldX - 260;
+        const baseY = worldY - 120;
+        const created = [];
+        const create = (type, x, y, content) => {
+            const node = addNode(type, x, y, null, content);
+            created.push(node);
+            return node;
+        };
+        const makeConn = (from, to, suffix, extra = {}) => ({
+            id: `conn-workflow-${Date.now()}-${suffix}-${Math.random().toString(36).slice(2, 8)}`,
+            from,
+            to,
+            ...extra
+        });
+
+        let entryNode = null;
+        let exitNode = null;
+        let internalConnections = [];
+        let settingsPatches = {};
+
+        if (presetType === 'workflow-text-to-image') {
+            const prompt = create('text-node', baseX, baseY, '画面主题、风格、构图、光线、细节');
+            const image = create('gen-image', baseX + 360, baseY, '');
+            entryNode = prompt;
+            exitNode = image;
+            internalConnections = [makeConn(prompt.id, image.id, 'prompt-image')];
+            settingsPatches[image.id] = { prompt: '根据上游文字生成图片' };
+        } else if (presetType === 'workflow-text-image-video') {
+            const imagePrompt = create('text-node', baseX - 40, baseY - 110, '先写图片主体、场景、风格与构图');
+            const image = create('gen-image', baseX + 320, baseY - 110, '');
+            const videoPrompt = create('text-node', baseX - 40, baseY + 170, '再写镜头运动、动作节奏与视频氛围');
+            const video = create('gen-video', baseX + 700, baseY + 20, '');
+            entryNode = imagePrompt;
+            exitNode = video;
+            internalConnections = [
+                makeConn(imagePrompt.id, image.id, 'prompt-image'),
+                makeConn(image.id, video.id, 'image-video'),
+                makeConn(videoPrompt.id, video.id, 'prompt-video')
+            ];
+            settingsPatches[image.id] = { prompt: '根据上游文字生成首帧图片' };
+            settingsPatches[video.id] = { videoPrompt: '结合图片与文字生成视频' };
+        } else if (presetType === 'workflow-multi-angle') {
+            const character = create('text-node', baseX - 120, baseY + 80, '角色设定：外观、服装、气质、固定特征');
+            const angles = [
+                ['正面', baseX + 240, baseY - 210],
+                ['侧面', baseX + 240, baseY - 40],
+                ['背面', baseX + 240, baseY + 130],
+                ['特写', baseX + 240, baseY + 300]
+            ];
+            entryNode = character;
+            exitNode = character;
+            angles.forEach(([label, x, y], index) => {
+                const prompt = create('text-node', x, y, `${label}视角，保持角色一致性`);
+                const image = create('gen-image', x + 340, y, '');
+                internalConnections.push(makeConn(character.id, prompt.id, `character-angle-${index}`));
+                internalConnections.push(makeConn(prompt.id, image.id, `angle-image-${index}`));
+                settingsPatches[image.id] = { prompt: `${label}视角角色图，保持设定一致` };
+                exitNode = image;
+            });
+        } else if (presetType === 'workflow-picture-book') {
+            const brief = create('text-node', baseX - 80, baseY, '绘本主题、角色、目标读者、页数与情绪基调');
+            const storyboard = create('storyboard-node', baseX + 360, baseY, '');
+            const save = create('local-save', baseX + 880, baseY, '');
+            entryNode = brief;
+            exitNode = save;
+            internalConnections = [
+                makeConn(brief.id, storyboard.id, 'brief-storyboard'),
+                makeConn(storyboard.id, save.id, 'storyboard-save')
+            ];
+        }
+
+        if (!entryNode || !exitNode) return null;
+
+        setNodes(prev => prev.map(node => {
+            const patch = settingsPatches[node.id];
+            return patch ? { ...node, settings: { ...(node.settings || {}), ...patch } } : node;
+        }));
+
+        setConnections(prev => {
+            let next = [...prev, ...internalConnections];
+            if (sourceId) {
+                const sourceNode = (nodesRef.current || []).find((n) => n.id === sourceId);
+                if (sourceNode && isForLoopNodeType(sourceNode.type)) {
+                    const rewired = rewireLoopEndAfterConnection(
+                        next,
+                        nodesRef.current || [],
+                        sourceId,
+                        entryNode.id,
+                        () => `conn-${Date.now()}-loop-end`
+                    );
+                    if (!rewired) {
+                        showToast('For 列表循环已连接下游，请从循环内部最后一个节点继续连接', 'warning');
+                        return prev;
+                    }
+                    next = rewired;
+                }
+                next.push(makeConn(sourceId, entryNode.id, 'source-entry'));
+            }
+            if (targetId) {
+                if (inputType && inputType !== 'default') {
+                    next = next.filter((c) => !(c.to === targetId && (c.inputType || 'default') === inputType));
+                }
+                next.push(makeConn(exitNode.id, targetId, 'exit-target', {
+                    inputType: inputType !== 'default' ? inputType : undefined
+                }));
+            }
+            return next;
+        });
+
+        setContextMenu(prev => ({ ...prev, visible: false }));
+        setContextMenuExpanded(null);
+        setConnectingSource(null);
+        setConnectingTarget(null);
+        setConnectingInputType(null);
+        showToast('已添加工作流模板', 'success');
+        return created;
+    };
+
+    const addContextMenuItem = (type) => {
+        if (typeof type === 'string' && type.startsWith('workflow-')) {
+            return addWorkflowPreset(type, contextMenu.worldX, contextMenu.worldY, contextMenu.sourceNodeId, contextMenu.targetNodeId, contextMenu.inputType);
+        }
+        return addNode(type, contextMenu.worldX, contextMenu.worldY, contextMenu.sourceNodeId, undefined, undefined, contextMenu.targetNodeId, contextMenu.inputType);
+    };
+
     const normalizeCharacterAge = (ageValue) => {
         if (!ageValue) return '';
         if (typeof ageValue === 'number') return `${ageValue}岁左右`;
@@ -36960,7 +37086,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 style={{ left: contextMenu.x, top: contextMenu.y, transform: 'translate(-50%, -50%)' }}
                                 onMouseLeave={() => {
                                     setContextMenu(prev => ({ ...prev, visible: false }));
-                                    setContextMenuExpanded(false);
+                                    setContextMenuExpanded(null);
                                 }}
                             >
                                 <div className="p-1">
@@ -36990,6 +37116,16 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         { type: 'image-compare', label: t('图像对比') },
                                         { type: 'preview', label: t('预览窗口') },
                                         { type: FOR_LOOP_NODE_TYPE, label: t('For 列表循环') },
+                                        {
+                                            type: 'workflow-presets',
+                                            label: t('工作流模板'),
+                                            children: [
+                                                { type: 'workflow-text-to-image', label: t('文生图工作流') },
+                                                { type: 'workflow-text-image-video', label: t('文生图生视频') },
+                                                { type: 'workflow-multi-angle', label: t('多角度分镜') },
+                                                { type: 'workflow-picture-book', label: t('绘本草稿') }
+                                            ]
+                                        },
                                         { type: 'local-save', label: t('保存到本地') }
                                     ].map(item => (
                                         <div key={item.type}>
@@ -36997,14 +37133,20 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 <div className="relative">
                                                     <div
                                                         className="flex items-center"
-                                                        onMouseEnter={() => setContextMenuExpanded(true)}
+                                                        onMouseEnter={() => setContextMenuExpanded(item.type)}
                                                     >
                                                         <button
                                                             className={`flex-1 text-left px-3 py-2 text-xs rounded transition-colors ${theme === 'dark'
                                                                 ? 'text-zinc-300 hover:bg-zinc-800'
                                                                 : 'text-zinc-700 hover:bg-zinc-100'
                                                                 }`}
-                                                            onClick={() => addNode(item.type, contextMenu.worldX, contextMenu.worldY, contextMenu.sourceNodeId, undefined, undefined, contextMenu.targetNodeId, contextMenu.inputType)}
+                                                            onClick={() => {
+                                                                if (item.type === 'workflow-presets') {
+                                                                    setContextMenuExpanded(prev => prev === item.type ? null : item.type);
+                                                                    return;
+                                                                }
+                                                                addContextMenuItem(item.type);
+                                                            }}
                                                         >
                                                             {item.label}
                                                         </button>
@@ -37015,15 +37157,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 }`}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setContextMenuExpanded(prev => !prev);
+                                                                setContextMenuExpanded(prev => prev === item.type ? null : item.type);
                                                             }}
-                                                            onMouseEnter={() => setContextMenuExpanded(true)}
+                                                            onMouseEnter={() => setContextMenuExpanded(item.type)}
                                                             title={t('展开子目录')}
                                                         >
                                                             <ChevronRight size={12} className="transition-transform" />
                                                         </button>
                                                     </div>
-                                                    {contextMenuExpanded && (
+                                                    {contextMenuExpanded === item.type && (
                                                         <div
                                                             className={`absolute left-full top-0 ml-1 w-40 rounded-lg shadow-xl p-1 border ${theme === 'dark'
                                                                 ? 'bg-[#18181b] border-zinc-700'
@@ -37037,7 +37179,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                         ? 'text-zinc-300 hover:bg-zinc-800'
                                                                         : 'text-zinc-700 hover:bg-zinc-100'
                                                                         }`}
-                                                                    onClick={() => addNode(child.type, contextMenu.worldX, contextMenu.worldY, contextMenu.sourceNodeId, undefined, undefined, contextMenu.targetNodeId, contextMenu.inputType)}
+                                                                    onClick={() => addContextMenuItem(child.type)}
                                                                 >
                                                                     {child.label}
                                                                 </button>
@@ -37051,7 +37193,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         ? 'text-zinc-300 hover:bg-zinc-800'
                                                         : 'text-zinc-700 hover:bg-zinc-100'
                                                         }`}
-                                                    onClick={() => addNode(item.type, contextMenu.worldX, contextMenu.worldY, contextMenu.sourceNodeId, undefined, undefined, contextMenu.targetNodeId, contextMenu.inputType)}
+                                                    onClick={() => addContextMenuItem(item.type)}
                                                 >
                                                     {item.label}
                                                 </button>
