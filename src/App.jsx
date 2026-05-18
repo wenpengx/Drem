@@ -6399,6 +6399,9 @@ function DreamApp() {
     const [connectingInputType, setConnectingInputType] = useState(null); // 'default', 'oref', 'sref'
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [hoverTargetId, setHoverTargetId] = useState(null);
+    const [isCanvasFileDragActive, setIsCanvasFileDragActive] = useState(false);
+    const canvasFileDragDepthRef = useRef(0);
+    const connectionDropHandledRef = useRef(false);
     const [isMouseOverStoryboard, setIsMouseOverStoryboard] = useState(false); // 鼠标是否在智能分镜表窗口内
 
     // 框选相关状态
@@ -10976,7 +10979,7 @@ function DreamApp() {
         }
     }, [isPanning, isSelecting, selectionBox, dragNodeId, resizingNodeId, screenToWorld, view.zoom, scheduleNodeUpdate, scheduleMultiNodeUpdate]);
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e = null) => {
         const releasedDragNodeIds = Array.isArray(dragPriorityNodeIdsRef.current)
             ? dragPriorityNodeIdsRef.current.filter(Boolean)
             : [];
@@ -11063,6 +11066,26 @@ function DreamApp() {
             lastZoomRef.current = null;
         }
         // 确保在所有情况下都清理拖动状态
+        if ((connectingSource || connectingTarget) && !connectionDropHandledRef.current) {
+            const releaseX = typeof e?.clientX === 'number' ? e.clientX : lastMousePos.current.x;
+            const releaseY = typeof e?.clientY === 'number' ? e.clientY : lastMousePos.current.y;
+            const world = screenToWorld(releaseX, releaseY);
+            setContextMenu({
+                visible: true,
+                x: releaseX,
+                y: releaseY,
+                worldX: world.x,
+                worldY: world.y,
+                sourceNodeId: connectingSource || undefined,
+                targetNodeId: connectingTarget || undefined,
+                inputType: connectingInputType || undefined
+            });
+            setContextMenuExpanded(false);
+            setConnectingSource(null);
+            setConnectingTarget(null);
+            setConnectingInputType(null);
+        }
+        connectionDropHandledRef.current = false;
         setIsDragging(false);
         // 重置 isSelectingRef（防止状态残留）
         isSelectingRef.current = false;
@@ -11098,13 +11121,13 @@ function DreamApp() {
             handleMouseMove(e);
         };
 
-        const handleGlobalPointerUp = () => {
-            handleMouseUp();
+        const handleGlobalPointerUp = (e) => {
+            handleMouseUp(e);
         };
 
-        const handleGlobalMouseUp = () => {
+        const handleGlobalMouseUp = (e) => {
             // mouseup 事件处理（降级方案）
-            handleMouseUp();
+            handleMouseUp(e);
         };
 
         // V3.5.20-1: 只使用 pointer 事件，移除重复的 mouse 事件监听（现代浏览器都支持 pointer）
@@ -11119,6 +11142,9 @@ function DreamApp() {
 
     const handleNodeMouseUp = useCallback((targetId, e, inputType = 'default') => {
         e.stopPropagation();
+        if (connectingSource || connectingTarget) {
+            connectionDropHandledRef.current = true;
+        }
         const releasedDragNodeIds = Array.isArray(dragPriorityNodeIdsRef.current)
             ? dragPriorityNodeIdsRef.current.filter(Boolean)
             : [];
@@ -14007,14 +14033,42 @@ function DreamApp() {
         ));
     };
 
+    const hasDraggedFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
+
+    const readDroppedFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target?.result || '');
+        reader.onerror = () => reject(reader.error || new Error('Failed to read dropped file'));
+        reader.readAsDataURL(file);
+    });
+
     const handleCanvasDragOver = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (hasDraggedFiles(e)) {
+            setIsCanvasFileDragActive(true);
+        }
+    };
+
+    const handleCanvasDragEnter = (e) => {
+        if (!hasDraggedFiles(e)) return;
+        canvasFileDragDepthRef.current += 1;
+        setIsCanvasFileDragActive(true);
+    };
+
+    const handleCanvasDragLeave = (e) => {
+        if (!hasDraggedFiles(e)) return;
+        canvasFileDragDepthRef.current = Math.max(0, canvasFileDragDepthRef.current - 1);
+        if (canvasFileDragDepthRef.current === 0) {
+            setIsCanvasFileDragActive(false);
+        }
     };
 
     const handleCanvasDrop = async (e) => {
         e.preventDefault();
         e.stopPropagation();
+        canvasFileDragDepthRef.current = 0;
+        setIsCanvasFileDragActive(false);
         if (e.currentTarget.id !== 'canvas-bg') return;
 
         const payload = getHistoryDragPayload(e);
@@ -14030,6 +14084,28 @@ function DreamApp() {
                 dragUrl = resolveDroppedUrlCandidate(candidate);
                 isVideo = isVideoUrl(dragUrl);
             }
+        }
+        if (!dragUrl && e.dataTransfer?.files?.length) {
+            const world = screenToWorld(e.clientX, e.clientY);
+            const files = Array.from(e.dataTransfer.files).filter(file =>
+                file.type.startsWith('image/') || file.type.startsWith('video/')
+            );
+            for (let index = 0; index < files.length; index += 1) {
+                const file = files[index];
+                const content = await readDroppedFileAsDataUrl(file);
+                const offset = index * 36;
+                if (file.type.startsWith('video/')) {
+                    addNode('video-input', world.x + offset, world.y + offset, null, content);
+                } else {
+                    let dims = undefined;
+                    try {
+                        const real = await getImageDimensions(content);
+                        if (real?.w && real?.h) dims = { w: real.w, h: real.h };
+                    } catch { }
+                    addNode('input-image', world.x + offset, world.y + offset, null, content, dims);
+                }
+            }
+            return;
         }
         if (!dragUrl) return;
 
@@ -36338,7 +36414,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     <div className="flex-1 relative overflow-hidden flex">
                         <div ref={canvasRef} id="canvas-bg" className="flex-1 h-full cursor-default relative"
                             onMouseDown={handleMouseDown} onClick={handleBackgroundClick} onDoubleClick={handleDoubleClick} onContextMenu={handleCanvasContextMenu}
-                            onDrop={handleCanvasDrop} onDragOver={handleCanvasDragOver}
+                            onDrop={handleCanvasDrop} onDragOver={handleCanvasDragOver} onDragEnter={handleCanvasDragEnter} onDragLeave={handleCanvasDragLeave}
                             style={{
                                 backgroundColor: theme === 'dark' ? '#09090b' : (theme === 'solarized' ? '#fdf6e3' : '#f4f4f5'),
                                 backgroundImage: (() => {
@@ -36393,6 +36469,25 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 />
                                 {visibleNodes.map((node) => renderNode(node))}
                             </div>
+
+                            {isCanvasFileDragActive && (
+                                <div className="absolute inset-0 z-[60] pointer-events-none flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
+                                    <div className={`rounded-xl border px-4 py-3 shadow-2xl ${theme === 'dark'
+                                        ? 'bg-[#18181b] border-zinc-700 text-zinc-100'
+                                        : theme === 'solarized'
+                                            ? 'bg-[#eee8d5] border-[#d7cfb2] text-zinc-800'
+                                            : 'bg-white border-zinc-200 text-zinc-800'
+                                        }`}>
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <FolderOpen size={16} />
+                                            拖到这里创建节点
+                                        </div>
+                                        <div className={`mt-1 text-[11px] ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                            图片和视频会自动转成画布节点
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* 框选框 */}
                             {selectionBox && (
