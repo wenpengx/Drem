@@ -104,6 +104,104 @@ MEDIA_FILE_EXTENSIONS = {
     '.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'
 }
 
+LOCAL_API_ENDPOINTS = [
+    {
+        "method": "GET",
+        "path": "/ping",
+        "summary": "Health check and runtime feature flags"
+    },
+    {
+        "method": "GET",
+        "path": "/status",
+        "summary": "Alias of /ping for health and runtime status"
+    },
+    {
+        "method": "GET",
+        "path": "/config",
+        "summary": "Read local save, proxy, and media conversion settings"
+    },
+    {
+        "method": "POST",
+        "path": "/config",
+        "summary": "Update local save, proxy, and media conversion settings"
+    },
+    {
+        "method": "GET",
+        "path": "/pick-path",
+        "summary": "Open native folder picker and return the selected local path"
+    },
+    {
+        "method": "GET",
+        "path": "/list-files",
+        "summary": "List saved local image and video files"
+    },
+    {
+        "method": "GET",
+        "path": "/file/{relative_path}",
+        "summary": "Serve a saved local file"
+    },
+    {
+        "method": "POST",
+        "path": "/save",
+        "summary": "Save one media file from URL or data URL"
+    },
+    {
+        "method": "POST",
+        "path": "/save-batch",
+        "summary": "Save multiple media files"
+    },
+    {
+        "method": "POST",
+        "path": "/save-cache",
+        "summary": "Save media into the local cache and return a local file URL"
+    },
+    {
+        "method": "POST",
+        "path": "/delete-file",
+        "summary": "Delete one saved local file"
+    },
+    {
+        "method": "POST",
+        "path": "/delete-batch",
+        "summary": "Delete multiple saved local files"
+    },
+    {
+        "method": "POST",
+        "path": "/folder-loop/scan",
+        "summary": "Scan a selected folder and return a naturally sorted image list"
+    },
+    {
+        "method": "GET",
+        "path": "/folder-loop/file",
+        "summary": "Read one image from a folder-loop scan by scan_id and index"
+    },
+    {
+        "method": "ANY",
+        "path": "/proxy",
+        "summary": "CORS proxy for configured allowlisted hosts"
+    },
+    {
+        "method": "GET",
+        "path": "/comfy/apps",
+        "summary": "List local Comfy workflow apps when middleware is enabled"
+    },
+    {
+        "method": "POST",
+        "path": "/comfy/run",
+        "summary": "Submit a Comfy workflow job when middleware is enabled"
+    },
+    {
+        "method": "GET",
+        "path": "/comfy/status/{request_id}",
+        "summary": "Read Comfy workflow job status"
+    },
+    {
+        "method": "GET",
+        "path": "/comfy/outputs/{request_id}",
+        "summary": "Read Comfy workflow job outputs"
+    }
+]
+
 # ComfyUI 特有配置
 COMFY_URL = "http://127.0.0.1:8188"
 COMFY_WS_URL = "ws://127.0.0.1:8188/ws"
@@ -125,6 +223,23 @@ config = {
     "convert_png_to_jpg": True,
     "jpg_quality": 95
 }
+
+def build_local_api_schema():
+    return {
+        "name": "Dream Local Server API",
+        "version": "1.0.0",
+        "base_url": f"http://127.0.0.1:{config['port']}",
+        "features": FEATURES,
+        "config": {
+            "save_path": config["save_path"],
+            "image_save_path": config["image_save_path"] or config["save_path"],
+            "video_save_path": config["video_save_path"] or config["save_path"],
+            "port": config["port"],
+            "pil_available": PIL_AVAILABLE,
+            "convert_png_to_jpg": config["convert_png_to_jpg"]
+        },
+        "endpoints": LOCAL_API_ENDPOINTS
+    }
 
 # 1.5 全局状态对象
 # ComfyUI 队列相关
@@ -893,6 +1008,10 @@ class DreamFullHandler(BaseHTTPRequestHandler):
         # 2. 原有功能路由
         if path in ('/proxy', '/proxy/'):
             self.handle_proxy(parsed)
+            return
+
+        if path in ('/api', '/api/schema'):
+            self._send_json(build_local_api_schema())
             return
         
         if path == '/status' or path == '/ping':

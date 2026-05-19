@@ -43,6 +43,17 @@ curl http://127.0.0.1:9527/ping
 curl http://127.0.0.1:9527/status
 ```
 
+## API Discovery
+
+The server exposes a read-only API catalog for the frontend, scripts, or external workflow tools:
+
+```powershell
+curl http://127.0.0.1:9527/api
+curl http://127.0.0.1:9527/api/schema
+```
+
+The response includes the current base URL, feature flags, save paths, media conversion status, and supported endpoints such as `/save`, `/save-batch`, `/save-cache`, `/list-files`, `/pick-path`, `/folder-loop/scan`, `/folder-loop/file`, `/proxy`, and `/comfy/*`.
+
 ## Folder Loop API
 
 ```powershell
