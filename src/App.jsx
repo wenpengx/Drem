@@ -4867,6 +4867,19 @@ function DreamApp() {
     const [customNodeColor, setCustomNodeColor] = useState(() => {
         try { return localStorage.getItem('dream_node_color') || null; } catch { return null; }
     });
+    const [nodeBackground, setNodeBackground] = useState(() => {
+        try { return localStorage.getItem('dream_node_bg') || null; } catch { return null; }
+    });
+    const [canvasBgOpacity, setCanvasBgOpacity] = useState(() => {
+        try { return parseFloat(localStorage.getItem('dream_canvas_bg_opacity')) || 0.3; } catch { return 0.3; }
+    });
+    const [nodeBackgroundOpacity, setNodeBackgroundOpacity] = useState(() => {
+        try { return parseFloat(localStorage.getItem('dream_node_bg_opacity')) || 0.15; } catch { return 0.15; }
+    });
+    const [appearanceDropdownOpen, setAppearanceDropdownOpen] = useState(false);
+    const appearanceBtnRef = useRef(null);
+    const nodeBackgroundInputRef = useRef(null);
+    const perNodeBgInputRef = useRef(null);
 
     useEffect(() => {
         try {
@@ -4882,6 +4895,21 @@ function DreamApp() {
         } catch {}
     }, [customNodeColor]);
 
+    useEffect(() => {
+        try {
+            if (nodeBackground) localStorage.setItem('dream_node_bg', nodeBackground);
+            else localStorage.removeItem('dream_node_bg');
+        } catch {}
+    }, [nodeBackground]);
+
+    useEffect(() => {
+        try { localStorage.setItem('dream_canvas_bg_opacity', String(canvasBgOpacity)); } catch {}
+    }, [canvasBgOpacity]);
+
+    useEffect(() => {
+        try { localStorage.setItem('dream_node_bg_opacity', String(nodeBackgroundOpacity)); } catch {}
+    }, [nodeBackgroundOpacity]);
+
     const handleBgUpload = useCallback((e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -4891,6 +4919,34 @@ function DreamApp() {
         reader.readAsDataURL(file);
         e.target.value = '';
     }, []);
+
+    const handleNodeBgUpload = useCallback((e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = () => setNodeBackground(reader.result);
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    }, []);
+
+    const handlePerNodeBgUpload = useCallback((e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const bgUrl = reader.result;
+            setNodes(prev => prev.map(n => {
+                if (selectedNodeIds.has(n.id) || n.id === selectedNodeId) {
+                    return { ...n, bgImage: bgUrl };
+                }
+                return n;
+            }));
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    }, [selectedNodeIds, selectedNodeId]);
 
     useEffect(() => {
         if (i18n.language !== language) {
@@ -27432,6 +27488,12 @@ ${inputText.substring(0, 15000)} ... (截断)
                     onMouseLeave={() => { if ((connectingSource || connectingTarget) && hoverTargetId === node.id) setHoverTargetId(null); }}
                     onMouseUp={(e) => handleNodeMouseUp(node.id, e)}
                 >
+                    {/* Node background image */}
+                    {(node.bgImage || nodeBackground) && (
+                        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 'inherit', zIndex: 0 }}>
+                            <img src={node.bgImage || nodeBackground} alt="" className="w-full h-full object-cover" style={{ opacity: nodeBackgroundOpacity }} />
+                        </div>
+                    )}
                     {/* 仅显示核心图片/视频 */}
                     {node.type === 'input-image' && inputImageDisplayContent && (
                         <div className="w-full h-full relative">
@@ -27727,6 +27789,12 @@ ${inputText.substring(0, 15000)} ... (截断)
                     }
                 }}
             >
+                {/* Node background image (high detail) */}
+                {(node.bgImage || nodeBackground) && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 'inherit', zIndex: 0 }}>
+                        <img src={node.bgImage || nodeBackground} alt="" className="w-full h-full object-cover" style={{ opacity: nodeBackgroundOpacity }} />
+                    </div>
+                )}
                 <button
                     onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
                     className={`absolute -top-2 -right-2 z-50 p-1 rounded-md shadow border opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-100 ${theme === 'dark'
@@ -35076,6 +35144,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     if (historyContextMenu.visible) setHistoryContextMenu(prev => ({ ...prev, visible: false }));
                     if (historySendMenuOpen) setHistorySendMenuOpen(false);
                     if (frameContextMenu.visible) setFrameContextMenu(prev => ({ ...prev, visible: false }));
+                    if (appearanceDropdownOpen) setAppearanceDropdownOpen(false);
                 }}
             >
                 {customNodeColor && (
@@ -35235,7 +35304,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                             })()}
                         </button>
                         <button
-                            onClick={() => setLanguage(prev => prev === 'zh' ? 'en' : 'zh')}
+                            ref={appearanceBtnRef}
+                            onClick={() => setAppearanceDropdownOpen(prev => !prev)}
+                            className={topBarButtonClass(appearanceDropdownOpen ? 'active' : 'default')}
+                            title={t('外观设置')}
+                        >
+                            <Palette size={13} />
+                            <span>{t('外观')}</span>
+                        </button>
+                        <button
                             className={topBarButtonClass()}
                             title={t('切换语言')}
                         >
@@ -35275,6 +35352,190 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </Button>
                     </div>
                 </div>
+
+                {/* Appearance Dropdown Panel */}
+                {appearanceDropdownOpen && (
+                    <>
+                        <div className="fixed inset-0 z-[80]" onClick={() => setAppearanceDropdownOpen(false)} />
+                        <div
+                            className={`fixed z-[81] w-80 rounded-lg shadow-2xl border backdrop-blur-md ${theme === 'dark'
+                                ? 'bg-[#18181b]/95 border-zinc-700'
+                                : theme === 'solarized'
+                                    ? 'bg-[#eee8d5]/95 border-[#d7cfb2]'
+                                    : 'bg-white/95 border-zinc-200'
+                            }`}
+                            style={{
+                                top: 48,
+                                right: 220,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="p-3 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                {/* Canvas Background */}
+                                <div>
+                                    <div className={`text-[10px] font-medium uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                                        画布背景
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-1.5">
+                                        <button
+                                            onClick={() => setCanvasBackground(null)}
+                                            className={`aspect-video rounded border-2 overflow-hidden transition-all ${!canvasBackground
+                                                ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
+                                            }`}
+                                        >
+                                            <div className={`w-full h-full flex items-center justify-center text-[8px] ${theme === 'dark' ? 'bg-zinc-900 text-zinc-500' : 'bg-zinc-100 text-zinc-400'}`}>
+                                                {t('默认')}
+                                            </div>
+                                        </button>
+                                        {PRESET_BACKGROUNDS.map(bg => (
+                                            <button
+                                                key={bg.id}
+                                                onClick={() => setCanvasBackground(bg.src)}
+                                                className={`relative aspect-video rounded border-2 overflow-hidden transition-all ${canvasBackground === bg.src
+                                                    ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                    : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
+                                                }`}
+                                                title={bg.name}
+                                            >
+                                                <img src={bg.src} alt={bg.name} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 text-[7px] text-white text-center leading-tight py-px">
+                                                    {bg.name}
+                                                </div>
+                                            </button>
+                                        ))}
+                                        <label className={`aspect-video rounded border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center flex-col ${theme === 'dark'
+                                            ? 'border-zinc-700 hover:border-zinc-500 bg-zinc-900/50 text-zinc-500 hover:text-zinc-300'
+                                            : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50 text-zinc-400 hover:text-zinc-600'
+                                        }`}>
+                                            <Upload size={11} />
+                                            <span className="text-[7px]">{t('上传')}</span>
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
+                                        </label>
+                                    </div>
+                                    {canvasBackground && (
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <span className={`text-[9px] shrink-0 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{t('透明度')}</span>
+                                            <input
+                                                type="range" min="0.05" max="0.5" step="0.05"
+                                                value={canvasBgOpacity}
+                                                onChange={(e) => setCanvasBgOpacity(parseFloat(e.target.value))}
+                                                className="flex-1 h-1 accent-sky-500"
+                                            />
+                                            <span className={`text-[9px] font-mono w-7 text-right ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                                {Math.round(canvasBgOpacity * 100)}%
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className={`border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`} />
+
+                                {/* Node Background (Global) */}
+                                <div>
+                                    <div className={`text-[10px] font-medium uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                                        节点背景（全局）
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-1.5">
+                                        <button
+                                            onClick={() => setNodeBackground(null)}
+                                            className={`aspect-video rounded border-2 overflow-hidden transition-all ${!nodeBackground
+                                                ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
+                                            }`}
+                                        >
+                                            <div className={`w-full h-full flex items-center justify-center text-[8px] ${theme === 'dark' ? 'bg-zinc-900 text-zinc-500' : 'bg-zinc-100 text-zinc-400'}`}>
+                                                {t('无')}
+                                            </div>
+                                        </button>
+                                        {PRESET_BACKGROUNDS.map(bg => (
+                                            <button
+                                                key={bg.id}
+                                                onClick={() => setNodeBackground(bg.src)}
+                                                className={`relative aspect-video rounded border-2 overflow-hidden transition-all ${nodeBackground === bg.src
+                                                    ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                    : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
+                                                }`}
+                                                title={bg.name}
+                                            >
+                                                <img src={bg.src} alt={bg.name} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 text-[7px] text-white text-center leading-tight py-px">
+                                                    {bg.name}
+                                                </div>
+                                            </button>
+                                        ))}
+                                        <label className={`aspect-video rounded border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center flex-col ${theme === 'dark'
+                                            ? 'border-zinc-700 hover:border-zinc-500 bg-zinc-900/50 text-zinc-500 hover:text-zinc-300'
+                                            : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50 text-zinc-400 hover:text-zinc-600'
+                                        }`}>
+                                            <Upload size={11} />
+                                            <span className="text-[7px]">{t('上传')}</span>
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleNodeBgUpload} />
+                                        </label>
+                                    </div>
+                                    {nodeBackground && (
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <span className={`text-[9px] shrink-0 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{t('透明度')}</span>
+                                            <input
+                                                type="range" min="0.05" max="0.4" step="0.05"
+                                                value={nodeBackgroundOpacity}
+                                                onChange={(e) => setNodeBackgroundOpacity(parseFloat(e.target.value))}
+                                                className="flex-1 h-1 accent-sky-500"
+                                            />
+                                            <span className={`text-[9px] font-mono w-7 text-right ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                                {Math.round(nodeBackgroundOpacity * 100)}%
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className={`border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`} />
+
+                                {/* Node Accent Color */}
+                                <div>
+                                    <div className={`text-[10px] font-medium uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                                        节点强调色
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {NODE_COLOR_PRESETS.map(preset => (
+                                            <button
+                                                key={preset.id}
+                                                onClick={() => setCustomNodeColor(preset.color)}
+                                                className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] transition-all ${(customNodeColor === preset.color || (!customNodeColor && !preset.color))
+                                                    ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                    : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
+                                                } ${theme === 'dark' ? 'bg-zinc-900 text-zinc-300' : 'bg-white text-zinc-700'}`}
+                                                title={preset.label}
+                                            >
+                                                <span
+                                                    className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                                                    style={{ background: preset.color || (theme === 'dark' ? '#52525b' : '#a1a1aa') }}
+                                                />
+                                                {preset.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        <label className={`text-[9px] ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>{t('自定义')}:</label>
+                                        <input
+                                            type="color"
+                                            value={customNodeColor || '#38bdf8'}
+                                            onChange={(e) => setCustomNodeColor(e.target.value)}
+                                            className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                                        />
+                                        {customNodeColor && (
+                                            <span className={`text-[9px] font-mono ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                                {customNodeColor}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+                {/* Hidden file inputs for per-node background */}
+                <input ref={perNodeBgInputRef} type="file" accept="image/*" className="hidden" onChange={handlePerNodeBgUpload} />
 
                 <div className={`flex-1 relative overflow-hidden flex transition-colors duration-300 ${theme === 'dark'
                     ? 'bg-[#09090b]'
@@ -36637,7 +36898,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     backgroundSize: 'cover',
                                     backgroundPosition: 'center',
                                     backgroundRepeat: 'no-repeat',
-                                    opacity: 0.35,
+                                    opacity: canvasBgOpacity,
                                 }} />
                             )}
                             <div className="absolute origin-top-left will-change-transform" style={{
@@ -37439,6 +37700,43 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 >
                                     <Save size={14} className="text-blue-500" /> 保存当前选取工作流
                                 </button>
+                                <button
+                                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${theme === 'dark'
+                                        ? 'text-zinc-300 hover:bg-zinc-800'
+                                        : 'text-zinc-700 hover:bg-zinc-100'
+                                        }`}
+                                    onClick={() => {
+                                        setSelectionContextMenu({ visible: false, x: 0, y: 0 });
+                                        perNodeBgInputRef.current?.click();
+                                    }}
+                                >
+                                    <Paintbrush size={14} className="text-violet-500" /> 设置节点背景
+                                </button>
+                                {(() => {
+                                    const ids = selectedNodeIds.size > 0 ? selectedNodeIds : new Set(selectedNodeId ? [selectedNodeId] : []);
+                                    const hasBg = [...ids].some(id => nodes.find(n => n.id === id)?.bgImage);
+                                    if (!hasBg) return null;
+                                    return (
+                                        <button
+                                            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${theme === 'dark'
+                                                ? 'text-zinc-300 hover:bg-zinc-800'
+                                                : 'text-zinc-700 hover:bg-zinc-100'
+                                                }`}
+                                            onClick={() => {
+                                                setSelectionContextMenu({ visible: false, x: 0, y: 0 });
+                                                setNodes(prev => prev.map(n => {
+                                                    if (ids.has(n.id)) {
+                                                        const { bgImage, ...rest } = n;
+                                                        return rest;
+                                                    }
+                                                    return n;
+                                                }));
+                                            }}
+                                        >
+                                            <X size={14} className="text-red-400" /> 清除节点背景
+                                        </button>
+                                    );
+                                })()}
                             </div>
                         )}
 
@@ -37881,24 +38179,6 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             }`}
                                     >
                                         {t('模型库')}
-                                    </button>
-                                    <button
-                                        onClick={() => setSettingsTab('appearance')}
-                                        className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${settingsTab === 'appearance'
-                                            ? theme === 'dark'
-                                                ? 'bg-zinc-800 text-zinc-100'
-                                                : theme === 'solarized'
-                                                    ? 'bg-[#fdf6e3] text-zinc-800'
-                                                    : 'bg-white text-zinc-800'
-                                            : theme === 'dark'
-                                                ? 'text-zinc-400 hover:text-zinc-200'
-                                                : theme === 'solarized'
-                                                    ? 'text-[#586e75] hover:text-zinc-800'
-                                                    : 'text-zinc-500 hover:text-zinc-700'
-                                            }`}
-                                    >
-                                        <Palette size={11} />
-                                        {t('外观')}
                                     </button>
                                 </div>
                             </div>
@@ -40628,121 +40908,6 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         })}
                                     </div>
                                     <p className="text-[9px] text-zinc-500">提示：映射提示名仅用于展示，模型ID用于真实调用；不填写列表将使用默认限制。</p>
-                                </div>
-                            )}
-
-                            {settingsTab === 'appearance' && (
-                                <div className="p-4 space-y-5">
-                                    {/* Canvas Background */}
-                                    <div>
-                                        <div className={`text-xs font-medium mb-2 ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                                            <Paintbrush size={12} className="inline mr-1.5 -mt-0.5" />
-                                            画布背景
-                                        </div>
-                                        <div className="grid grid-cols-4 gap-2 mb-2">
-                                            {/* None/Default */}
-                                            <button
-                                                onClick={() => setCanvasBackground(null)}
-                                                className={`relative aspect-video rounded-md border-2 overflow-hidden transition-all ${!canvasBackground
-                                                    ? 'border-sky-500 ring-2 ring-sky-500/30'
-                                                    : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
-                                                }`}
-                                            >
-                                                <div className={`w-full h-full flex items-center justify-center text-[9px] ${theme === 'dark' ? 'bg-zinc-900 text-zinc-500' : 'bg-zinc-100 text-zinc-400'}`}>
-                                                    默认
-                                                </div>
-                                            </button>
-                                            {/* Preset backgrounds */}
-                                            {PRESET_BACKGROUNDS.map(bg => (
-                                                <button
-                                                    key={bg.id}
-                                                    onClick={() => setCanvasBackground(bg.src)}
-                                                    className={`relative aspect-video rounded-md border-2 overflow-hidden transition-all ${canvasBackground === bg.src
-                                                        ? 'border-sky-500 ring-2 ring-sky-500/30'
-                                                        : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
-                                                    }`}
-                                                    title={bg.name}
-                                                >
-                                                    <img src={bg.src} alt={bg.name} className="w-full h-full object-cover" />
-                                                    <div className="absolute inset-x-0 bottom-0 bg-black/60 text-[8px] text-white text-center py-0.5 leading-tight">
-                                                        {bg.name}
-                                                    </div>
-                                                </button>
-                                            ))}
-                                            {/* Upload custom */}
-                                            <label
-                                                className={`relative aspect-video rounded-md border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center flex-col gap-0.5 ${theme === 'dark'
-                                                    ? 'border-zinc-700 hover:border-zinc-500 bg-zinc-900/50 text-zinc-500 hover:text-zinc-300'
-                                                    : 'border-zinc-300 hover:border-zinc-400 bg-zinc-50 text-zinc-400 hover:text-zinc-600'
-                                                }`}
-                                            >
-                                                <Upload size={14} />
-                                                <span className="text-[8px]">上传图片</span>
-                                                <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
-                                            </label>
-                                        </div>
-                                        {canvasBackground && !PRESET_BACKGROUNDS.some(b => b.src === canvasBackground) && (
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className={`flex-1 h-12 rounded-md border overflow-hidden ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-300'}`}>
-                                                    <img src={canvasBackground} alt="Custom" className="w-full h-full object-cover" />
-                                                </div>
-                                                <button
-                                                    onClick={() => setCanvasBackground(null)}
-                                                    className={`text-[10px] px-2 py-1 rounded flex items-center gap-1 ${theme === 'dark' ? 'bg-zinc-800 text-red-400 hover:bg-zinc-700' : 'bg-zinc-200 text-red-500 hover:bg-zinc-300'}`}
-                                                >
-                                                    <X size={10} />
-                                                    移除
-                                                </button>
-                                            </div>
-                                        )}
-                                        <p className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                                            选择预设背景或上传自定义图片。背景会铺满整个画布区域。
-                                        </p>
-                                    </div>
-
-                                    {/* Node Accent Color */}
-                                    <div>
-                                        <div className={`text-xs font-medium mb-2 ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                                            <Palette size={12} className="inline mr-1.5 -mt-0.5" />
-                                            节点强调色
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 mb-2">
-                                            {NODE_COLOR_PRESETS.map(preset => (
-                                                <button
-                                                    key={preset.id}
-                                                    onClick={() => setCustomNodeColor(preset.color)}
-                                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] transition-all ${(customNodeColor === preset.color || (!customNodeColor && !preset.color))
-                                                        ? 'border-sky-500 ring-1 ring-sky-500/30'
-                                                        : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
-                                                    } ${theme === 'dark' ? 'bg-zinc-900 text-zinc-300' : 'bg-white text-zinc-700'}`}
-                                                    title={preset.label}
-                                                >
-                                                    <span
-                                                        className="w-3 h-3 rounded-full border border-white/20 shrink-0"
-                                                        style={{ background: preset.color || (theme === 'dark' ? '#52525b' : '#a1a1aa') }}
-                                                    />
-                                                    {preset.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <label className={`text-[10px] ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>自定义颜色：</label>
-                                            <input
-                                                type="color"
-                                                value={customNodeColor || '#38bdf8'}
-                                                onChange={(e) => setCustomNodeColor(e.target.value)}
-                                                className="w-7 h-7 rounded cursor-pointer border-0 p-0"
-                                            />
-                                            {customNodeColor && (
-                                                <span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                                                    {customNodeColor}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                                            自定义节点顶部的强调色条和选中时的高亮颜色。
-                                        </p>
-                                    </div>
                                 </div>
                             )}
 
