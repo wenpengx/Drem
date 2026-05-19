@@ -35016,7 +35016,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 type={progressState.type}
             />
             <div
-                className={`w-full h-screen font-sans overflow-hidden select-none flex flex-col transition-colors duration-300 ${theme === 'dark'
+                className={`dream-ui-refresh w-full h-screen font-sans overflow-hidden select-none flex flex-col transition-colors duration-300 ${theme === 'dark'
                     ? 'bg-[#09090b] text-white'
                     : theme === 'solarized'
                         ? 'bg-[#fdf6e3] text-[#586e75]'

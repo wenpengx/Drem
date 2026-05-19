@@ -188,3 +188,264 @@
 .markdown-body code {
     font-size: 0.875em;
 }
+
+/* Dream visual refresh */
+.dream-ui-refresh {
+    --dream-bg: #101214;
+    --dream-surface: rgba(24, 28, 31, 0.94);
+    --dream-surface-strong: rgba(31, 36, 40, 0.98);
+    --dream-surface-soft: rgba(255, 255, 255, 0.045);
+    --dream-border: rgba(196, 181, 146, 0.18);
+    --dream-border-strong: rgba(196, 181, 146, 0.34);
+    --dream-text: #eef2ef;
+    --dream-muted: #9aa6a1;
+    --dream-accent: #2dd4bf;
+    --dream-accent-2: #f2b84b;
+    --dream-danger: #ef6f6c;
+    --dream-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+    --dream-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.24);
+    color: var(--dream-text);
+    background:
+        linear-gradient(180deg, rgba(18, 21, 23, 0.96), rgba(11, 13, 14, 0.98)),
+        #101214 !important;
+}
+
+.dream-ui-refresh.theme-light {
+    --dream-bg: #eef1ee;
+    --dream-surface: rgba(255, 255, 255, 0.92);
+    --dream-surface-strong: rgba(255, 255, 255, 0.98);
+    --dream-surface-soft: rgba(19, 25, 24, 0.045);
+    --dream-border: rgba(43, 54, 50, 0.16);
+    --dream-border-strong: rgba(43, 54, 50, 0.28);
+    --dream-text: #17211f;
+    --dream-muted: #66736f;
+    --dream-shadow: 0 18px 42px rgba(39, 48, 44, 0.13);
+    --dream-shadow-soft: 0 10px 24px rgba(39, 48, 44, 0.10);
+}
+
+.dream-ui-refresh.theme-solarized {
+    --dream-bg: #ebe5d3;
+    --dream-surface: rgba(252, 248, 235, 0.94);
+    --dream-surface-strong: rgba(255, 251, 238, 0.98);
+    --dream-surface-soft: rgba(74, 64, 42, 0.055);
+    --dream-border: rgba(92, 83, 60, 0.18);
+    --dream-border-strong: rgba(92, 83, 60, 0.32);
+    --dream-text: #2c342f;
+    --dream-muted: #696f66;
+    --dream-accent: #3b9d8d;
+    --dream-accent-2: #b7791f;
+    --dream-shadow: 0 16px 34px rgba(78, 66, 41, 0.16);
+    --dream-shadow-soft: 0 10px 22px rgba(78, 66, 41, 0.12);
+}
+
+.dream-ui-refresh,
+.dream-ui-refresh * {
+    letter-spacing: 0;
+}
+
+.dream-ui-refresh > div:first-of-type {
+    background: var(--dream-surface-strong) !important;
+    border-bottom: 1px solid var(--dream-border) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 30px rgba(0, 0, 0, 0.16);
+    backdrop-filter: blur(18px);
+}
+
+.dream-ui-refresh > div:nth-of-type(2) {
+    background: var(--dream-bg) !important;
+}
+
+.dream-ui-refresh > div:nth-of-type(2) > div:first-child {
+    background: var(--dream-surface-strong) !important;
+    border-right: 1px solid var(--dream-border) !important;
+    box-shadow: 10px 0 28px rgba(0, 0, 0, 0.12);
+}
+
+.dream-ui-refresh #canvas-bg {
+    background-color: var(--dream-bg) !important;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at center, rgba(45, 212, 191, 0.28) 1px, transparent 1.6px) !important;
+    background-size: 48px 48px, 48px 48px, 24px 24px !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.dream-ui-refresh.theme-light #canvas-bg,
+.dream-ui-refresh.theme-solarized #canvas-bg {
+    background-image:
+        linear-gradient(rgba(18, 30, 26, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(18, 30, 26, 0.055) 1px, transparent 1px),
+        radial-gradient(circle at center, rgba(59, 157, 141, 0.22) 1px, transparent 1.6px) !important;
+}
+
+.dream-ui-refresh .node-wrapper {
+    border-radius: 10px !important;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+        var(--dream-surface) !important;
+    border: 1px solid var(--dream-border) !important;
+    box-shadow: var(--dream-shadow-soft) !important;
+    overflow: hidden;
+}
+
+.dream-ui-refresh .node-wrapper::before {
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--dream-accent), var(--dream-accent-2));
+    opacity: 0.72;
+}
+
+.dream-ui-refresh .node-wrapper:hover {
+    border-color: var(--dream-border-strong) !important;
+    box-shadow: var(--dream-shadow) !important;
+}
+
+.dream-ui-refresh .node-wrapper.node-selected {
+    border-color: rgba(45, 212, 191, 0.82) !important;
+    box-shadow:
+        0 0 0 1px rgba(45, 212, 191, 0.36),
+        0 18px 48px rgba(45, 212, 191, 0.16) !important;
+}
+
+.dream-ui-refresh .node-wrapper.node-selected::before {
+    opacity: 1;
+}
+
+.dream-ui-refresh .node-wrapper.node-adjacent {
+    border-color: rgba(242, 184, 75, 0.62) !important;
+}
+
+.dream-ui-refresh button {
+    border-radius: 8px !important;
+}
+
+.dream-ui-refresh button:not(:disabled) {
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease, box-shadow 160ms ease;
+}
+
+.dream-ui-refresh button:not(:disabled):active {
+    transform: translateY(1px) scale(0.99);
+}
+
+.dream-ui-refresh button[class*="bg-blue-"],
+.dream-ui-refresh button[class*="bg-sky-"],
+.dream-ui-refresh button[class*="bg-emerald-"],
+.dream-ui-refresh button[class*="bg-green-"] {
+    background: linear-gradient(180deg, #22c7b8, #168b80) !important;
+    border-color: rgba(45, 212, 191, 0.52) !important;
+    color: #f4fffb !important;
+    box-shadow: 0 8px 18px rgba(22, 139, 128, 0.22);
+}
+
+.dream-ui-refresh button[class*="bg-blue-"]:hover,
+.dream-ui-refresh button[class*="bg-sky-"]:hover,
+.dream-ui-refresh button[class*="bg-emerald-"]:hover,
+.dream-ui-refresh button[class*="bg-green-"]:hover {
+    background: linear-gradient(180deg, #34dbc9, #18998d) !important;
+}
+
+.dream-ui-refresh button[class*="text-red-"],
+.dream-ui-refresh button[class*="hover:text-red-"]:hover {
+    color: var(--dream-danger) !important;
+}
+
+.dream-ui-refresh input,
+.dream-ui-refresh textarea,
+.dream-ui-refresh select {
+    border-radius: 8px !important;
+    border-color: var(--dream-border) !important;
+    background: rgba(255, 255, 255, 0.055) !important;
+    color: var(--dream-text) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.dream-ui-refresh.theme-light input,
+.dream-ui-refresh.theme-light textarea,
+.dream-ui-refresh.theme-light select,
+.dream-ui-refresh.theme-solarized input,
+.dream-ui-refresh.theme-solarized textarea,
+.dream-ui-refresh.theme-solarized select {
+    background: rgba(255, 255, 255, 0.74) !important;
+}
+
+.dream-ui-refresh input:focus,
+.dream-ui-refresh textarea:focus,
+.dream-ui-refresh select:focus {
+    border-color: rgba(45, 212, 191, 0.72) !important;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.14) !important;
+}
+
+.dream-ui-refresh [class*="bg-[#18181b]"],
+.dream-ui-refresh [class*="bg-[#121214]"],
+.dream-ui-refresh [class*="bg-[#0b0b0d]"],
+.dream-ui-refresh [class*="bg-zinc-900"],
+.dream-ui-refresh [class*="bg-zinc-950"] {
+    background-color: var(--dream-surface) !important;
+}
+
+.dream-ui-refresh [class*="border-zinc-"],
+.dream-ui-refresh [class*="border-[#d7cfb2]"],
+.dream-ui-refresh [class*="border-[#eee8d5]"] {
+    border-color: var(--dream-border) !important;
+}
+
+.dream-ui-refresh [class*="text-zinc-500"],
+.dream-ui-refresh [class*="text-zinc-400"],
+.dream-ui-refresh [class*="text-[#586e75]"] {
+    color: var(--dream-muted) !important;
+}
+
+.dream-ui-refresh [class*="text-zinc-300"],
+.dream-ui-refresh [class*="text-zinc-200"],
+.dream-ui-refresh [class*="text-zinc-100"] {
+    color: var(--dream-text) !important;
+}
+
+.dream-ui-refresh .connector,
+.dream-ui-refresh .input-point {
+    background: var(--dream-surface-strong) !important;
+    border-color: var(--dream-border-strong) !important;
+    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.08), 0 8px 18px rgba(0, 0, 0, 0.22) !important;
+}
+
+.dream-ui-refresh .connector:hover,
+.dream-ui-refresh .connector.active,
+.dream-ui-refresh .input-point.active,
+.dream-ui-refresh .input-point.connected {
+    background: var(--dream-accent) !important;
+    border-color: rgba(255, 255, 255, 0.56) !important;
+}
+
+.dream-ui-refresh .connection-group path:not(.connection-hit-area) {
+    filter: drop-shadow(0 0 6px rgba(45, 212, 191, 0.22));
+}
+
+.dream-ui-refresh .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dream-ui-refresh .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(154, 166, 161, 0.46) !important;
+    border: 2px solid transparent;
+    border-radius: 999px !important;
+    background-clip: padding-box;
+}
+
+.dream-ui-refresh .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(45, 212, 191, 0.62) !important;
+    background-clip: padding-box;
+}
+
+.dream-ui-refresh .markdown-body pre,
+.dream-ui-refresh .markdown-body code {
+    background: rgba(0, 0, 0, 0.28) !important;
+    border: 1px solid var(--dream-border);
+}
+
+.dream-ui-refresh .lightbox-overlay {
+    background: rgba(5, 7, 8, 0.92);
+    backdrop-filter: blur(18px);
+}
