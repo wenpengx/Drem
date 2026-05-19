@@ -27800,11 +27800,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                 )}
                 <button
                     onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
-                    className={`absolute -top-2 -right-2 z-50 p-1 rounded-md shadow border opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-100 ${theme === 'dark'
-                        ? 'bg-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-zinc-700 border-zinc-700'
-                        : 'bg-zinc-100 text-zinc-500 hover:text-red-500 hover:bg-zinc-200 border-zinc-300'
+                    className={`absolute -top-4 -right-4 z-50 p-1 rounded-full shadow-lg border opacity-0 group-hover:opacity-100 transition-all scale-90 hover:scale-110 ${theme === 'dark'
+                        ? 'bg-zinc-800 text-zinc-400 hover:text-red-400 hover:bg-red-950 border-zinc-700 hover:border-red-800'
+                        : theme === 'solarized'
+                            ? 'bg-[#eee8d5] text-[#586e75] hover:text-red-500 hover:bg-red-50 border-[#d7cfb2] hover:border-red-300'
+                            : 'bg-white text-zinc-400 hover:text-red-500 hover:bg-red-50 border-zinc-200 hover:border-red-300'
                         }`}
                     onMouseDown={(e) => e.stopPropagation()}
+                    title={t('删除节点')}
                 >
                     <X size={12} />
                 </button>
