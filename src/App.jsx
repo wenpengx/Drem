@@ -4930,6 +4930,8 @@ function DreamApp() {
         e.target.value = '';
     }, []);
 
+    const perNodeBgSelectionRef = useRef({ nodeId: null, nodeIds: new Set() });
+
     const handlePerNodeBgUpload = useCallback((e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -4937,8 +4939,9 @@ function DreamApp() {
         const reader = new FileReader();
         reader.onload = () => {
             const bgUrl = reader.result;
+            const { nodeId, nodeIds } = perNodeBgSelectionRef.current;
             setNodes(prev => prev.map(n => {
-                if (selectedNodeIds.has(n.id) || n.id === selectedNodeId) {
+                if (nodeIds.has(n.id) || n.id === nodeId) {
                     return { ...n, bgImage: bgUrl };
                 }
                 return n;
@@ -4946,7 +4949,7 @@ function DreamApp() {
         };
         reader.readAsDataURL(file);
         e.target.value = '';
-    }, [selectedNodeIds, selectedNodeId]);
+    }, []);
 
     useEffect(() => {
         if (i18n.language !== language) {
@@ -37707,6 +37710,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         }`}
                                     onClick={() => {
                                         setSelectionContextMenu({ visible: false, x: 0, y: 0 });
+                                        perNodeBgSelectionRef.current = { nodeId: selectedNodeId, nodeIds: new Set(selectedNodeIds) };
                                         perNodeBgInputRef.current?.click();
                                     }}
                                 >
