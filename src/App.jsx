@@ -1916,60 +1916,14 @@ const IMAGE_TASK_TIMEOUT_MS = 60 * 1000;
 const VIDEO_TASK_TIMEOUT_MS = 5 * 60 * 1000;
 
 // --- 默认配置 ---
-const DEFAULT_BASE_URL = 'https://ai.comfly.chat';
+const DEFAULT_BASE_URL = '';
 
-// 即梦API配置（代理地址，默认本地5100端口）
-const JIMENG_API_BASE_URL = 'http://localhost:5100';
-const JIMENG_SESSION_ID = '7a16459fbd65d9c87b4ea44d3318f5fa';
+const JIMENG_API_BASE_URL = '';
+const JIMENG_SESSION_ID = '';
 
-// V3.6.0: 供应商配置（简化版 - 无 name 字段，直接用 key 作为显示名）
-const DEFAULT_PROVIDERS = {
-    'openai': { key: '', url: DEFAULT_BASE_URL, apiType: 'openai', useProxy: false, forceAsync: false },
-    'google': { key: '', url: DEFAULT_BASE_URL, apiType: 'openai', useProxy: false, forceAsync: false },
-    'deepseek': { key: '', url: DEFAULT_BASE_URL, apiType: 'openai', useProxy: false, forceAsync: false },
-    'midjourney': { key: '', url: 'https://api.midjourney.com', apiType: 'openai', useProxy: false, forceAsync: false },
-    'jimeng': { key: '', url: JIMENG_API_BASE_URL, apiType: 'openai', useProxy: false, forceAsync: false },
-    'grok': { key: '', url: 'https://ai.t8star.cn', apiType: 'openai', useProxy: false, forceAsync: false },
-    'yunwu': { key: '', url: 'https://yunwu.ai', apiType: 'gemini', useProxy: false, forceAsync: false },
-};
+const DEFAULT_PROVIDERS = {};
 
-// V3.6.0: 模型配置（简化版 - id 即 modelName，无 displayName）
-const DEFAULT_API_CONFIGS = [
-    // Chat Models
-    { id: 'gpt-5.1', provider: 'openai', type: 'Chat' },
-    { id: 'gpt-5.2', provider: 'openai', type: 'Chat' },
-    { id: 'gpt-4o', provider: 'openai', type: 'Chat' },
-    { id: 'deepseek-v3-1-250821', provider: 'deepseek', type: 'Chat' },
-    { id: 'gemini-3-pro-preview', provider: 'google', type: 'Chat' },
-
-    // Image Models
-    { id: 'MJ V6', provider: 'midjourney', type: 'Image' },
-    { id: 'gpt-4o-image', provider: 'openai', type: 'Image' },
-    { id: 'gemini-3-pro-image-preview', provider: 'yunwu', type: 'Image' },
-    { id: 'jimeng-4.5', provider: 'jimeng', type: 'Image' },
-    { id: 'jimeng-4.1', provider: 'jimeng', type: 'Image' },
-    { id: 'jimeng-4.0', provider: 'jimeng', type: 'Image' },
-    { id: 'jimeng-3.1', provider: 'jimeng', type: 'Image' },
-    { id: 'jimeng-3.0', provider: 'jimeng', type: 'Image' },
-    { id: 'jimeng-2.1', provider: 'jimeng', type: 'Image' },
-    { id: 'jimeng-xl-pro', provider: 'jimeng', type: 'Image' },
-    { id: 'nanobananapro', provider: 'jimeng', type: 'Image' },
-    { id: 'nanobanana', provider: 'jimeng', type: 'Image' },
-
-    // Video Models
-    { id: 'sora-2', provider: 'openai', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'sora-2-pro', provider: 'openai', type: 'Video', durations: ['15s', '25s'] },
-    { id: 'jimeng-video-3.5-pro', provider: 'jimeng', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'jimeng-video-veo3', provider: 'jimeng', type: 'Video', durations: ['8s'] },
-    { id: 'jimeng-video-veo3.1', provider: 'jimeng', type: 'Video', durations: ['8s'] },
-    { id: 'jimeng-video-sora2', provider: 'jimeng', type: 'Video', durations: ['4s', '8s', '12s'] },
-    { id: 'jimeng-video-3.0-pro', provider: 'jimeng', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'jimeng-video-3.0', provider: 'jimeng', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'jimeng-video-3.0-fast', provider: 'jimeng', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'jimeng-video-2.0-pro', provider: 'jimeng', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'jimeng-video-2.0', provider: 'jimeng', type: 'Video', durations: ['5s', '10s'] },
-    { id: 'grok-video-3', provider: 'grok', type: 'Video', durations: ['8s', '5s'] },
-];
+const DEFAULT_API_CONFIGS = [];
 
 const RATIOS = ['Auto', '1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '3:2', '2:3'];
 const GROK_VIDEO_RATIOS = ['3:2', '2:3', '1:1'];
@@ -5925,7 +5879,7 @@ function DreamApp() {
 
     // V2.6.1 Feature: 本地服务器 URL
     const [localServerUrl, setLocalServerUrl] = useState(() => {
-        return localStorage.getItem('dream_local_server_url') || 'http://127.0.0.1:9527';
+        return localStorage.getItem('dream_local_server_url') || '';
     });
 
     // V2.6.1 Feature: 本地缓存服务器状态
@@ -13642,13 +13596,6 @@ function DreamApp() {
                 const blob = new Blob([byteArray], { type: mimeType });
 
                 const imageBedServices = [
-                    // sm.ms图床
-                    {
-                        name: 'sm.ms',
-                        url: 'https://sm.ms/api/v2/upload',
-                        fieldName: 'smfile',
-                        parseResponse: (data) => data.success && data.data?.url ? data.data.url : null
-                    }
                 ];
 
                 for (const service of imageBedServices) {
@@ -16920,8 +16867,7 @@ function DreamApp() {
                 const isChatImage = config?.type === 'ChatImage';
                 const useAsync = isModelScope ? forceAsync : false;
                 const resolveSourceProxy = (url) => getProxyPreferenceForUrl(url, useProxy);
-                const asyncConfig = normalizeAsyncConfig(config?.asyncConfig)
-                    || ((baseUrl && String(baseUrl).includes('127.0.0.1:9527')) ? normalizeAsyncConfig(ASYNC_CONFIG_TEMPLATE) : null);
+                const asyncConfig = normalizeAsyncConfig(config?.asyncConfig);
                 const isLocalMiddlewareTarget = (() => {
                     try {
                         const parsed = new URL(String(baseUrl || ''));
@@ -18020,21 +17966,6 @@ function DreamApp() {
                         ));
                         pollAsyncTask(taskId, requestId, asyncConfig, asyncVars, w, h, actualSourceNodeId, providerKey, 0);
                         return;
-                    }
-                }
-                if (!asyncConfig?.enabled && baseUrl && (String(baseUrl).includes('127.0.0.1:9527') || String(baseUrl).includes('localhost:9527'))) {
-                    const requestId = getValueByPathAny(data, ['requestId', 'request_id', 'data.requestId', 'data.request_id', 'taskId', 'task_id', 'job_id']);
-                    if (requestId && immediateImageCandidates.length === 0) {
-                        const fallbackConfig = normalizeAsyncConfig(ASYNC_CONFIG_TEMPLATE);
-                        if (fallbackConfig) {
-                            const asyncVars = await buildAsyncTemplateVars();
-                            asyncVars.requestId = requestId;
-                            setHistory((prev) => prev.map((hItem) =>
-                                hItem.id === taskId ? { ...hItem, status: 'generating', progress: 10, remoteTaskId: requestId } : hItem
-                            ));
-                            pollAsyncTask(taskId, requestId, fallbackConfig, asyncVars, w, h, actualSourceNodeId, providerKey, 0);
-                            return;
-                        }
                     }
                 }
 
@@ -20863,7 +20794,7 @@ function DreamApp() {
                 }
 
                 let localFiles = [];
-                const baseUrl = (localServerUrl || 'http://127.0.0.1:9527').replace(/\/+$/, '');
+                const baseUrl = (localServerUrl || '').replace(/\/+$/, '');
                 try {
                     if (baseUrl) {
                         const localFilesRes = await fetch(`${baseUrl}/list-files`);
@@ -21112,7 +21043,7 @@ function DreamApp() {
 
             // --- 尝试获取本地库文件列表（用于优先使用本地文件）---
             let localFiles = [];
-            const localBaseUrl = (localServerUrl || 'http://127.0.0.1:9527').replace(/\/+$/, '');
+            const localBaseUrl = (localServerUrl || '').replace(/\/+$/, '');
             try {
                 if (localBaseUrl) {
                     const localFilesRes = await fetch(`${localBaseUrl}/list-files`);
@@ -29278,7 +29209,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             type="text"
                                             value={node.settings?.serverUrl ?? ''}
                                             onChange={(e) => updateNodeSettings(node.id, { serverUrl: e.target.value })}
-                                            placeholder={localServerUrl || 'http://127.0.0.1:9527'}
+                                            placeholder={localServerUrl || ''}
                                             className={`w-full text-xs border rounded px-2 py-1.5 outline-none focus:border-blue-500 ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 placeholder-zinc-600' : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800 placeholder-zinc-400' : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'}`}
                                             onMouseDown={(e) => e.stopPropagation()}
                                         />
@@ -38279,7 +38210,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                     setLocalServerUrl(url);
                                                                     localStorage.setItem('dream_local_server_url', url);
                                                                 }}
-                                                                placeholder="http://127.0.0.1:9527"
+                                                                placeholder="http://localhost:port"
                                                                 className={`w-full text-xs rounded px-2 py-1 border outline-none ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : 'bg-white border-zinc-300'}`}
                                                             />
                                                             <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
@@ -38768,7 +38699,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                         : 'bg-zinc-300'
                                                                     } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
                                                             </label>
-                                                            <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>使用 {localServerUrl || 'http://127.0.0.1:9527'}/proxy</span>
+                                                            <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>使用 {localServerUrl || t('本地代理')}/proxy</span>
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-4 items-center gap-2">

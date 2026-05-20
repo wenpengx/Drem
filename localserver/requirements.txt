@@ -1,7 +1,0 @@
-# Dream Local Server Python Dependencies
-
-# Image processing and PNG-to-JPG conversion.
-Pillow>=9.0.0
-
-# WebSocket client for ComfyUI middleware.
-websocket-client>=1.0.0
