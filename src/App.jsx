@@ -6621,6 +6621,7 @@ function DreamApp() {
     const [deletingProviderKey, setDeletingProviderKey] = useState(null); // V3.4.7: Settings Modal Provider 删除确认状态
     const [apiTesting, setApiTesting] = useState(null);
     const [apiStatus, setApiStatus] = useState({});
+    const [fetchingModels, setFetchingModels] = useState({});
     // 实时计时器状态：nodeId -> elapsedSeconds
     const [nodeTimers, setNodeTimers] = useState({});
     // V3.4.8: 记住上次使用的模型
@@ -12081,6 +12082,53 @@ function DreamApp() {
             setApiStatus((prev) => ({ ...prev, [statusKey]: 'error' }));
         }
         setApiTesting(null);
+    };
+
+    const guessModelType = (modelId) => {
+        const id = (modelId || '').toLowerCase();
+        if (/video|sora|kling|wan|cog|luma|runway|pika|gen-\d/.test(id)) return 'Video';
+        if (/dall-e|flux|stable[-_]?diff|midjourney|sd[-_]?\d|sdxl|imagen|image[-_]gen/.test(id)) return 'Image';
+        return 'Chat';
+    };
+
+    const fetchProviderModels = async (providerKey) => {
+        const provider = providers[providerKey];
+        const apiKey = provider?.key || globalApiKey;
+        const baseUrl = (provider?.url || '').replace(/\/+$/, '');
+        if (!apiKey || !baseUrl) return null;
+
+        setFetchingModels(prev => ({ ...prev, [providerKey]: true }));
+        try {
+            const response = await fetch(`${baseUrl}/v1/models`, {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${apiKey}` },
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const models = data.data || data.models || [];
+
+            const existingIds = new Set(apiConfigs.filter(c => c.provider === providerKey).map(c => c.id));
+            const newConfigs = models
+                .filter(m => m.id && !existingIds.has(m.id))
+                .map(m => ({
+                    _uid: `uid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    id: m.id,
+                    provider: providerKey,
+                    type: guessModelType(m.id),
+                    modelName: m.id,
+                    displayName: m.id,
+                }));
+
+            if (newConfigs.length > 0) {
+                setApiConfigs(prev => [...prev, ...newConfigs]);
+            }
+            setFetchingModels(prev => ({ ...prev, [providerKey]: false }));
+            return { added: newConfigs.length, total: models.length };
+        } catch (e) {
+            setFetchingModels(prev => ({ ...prev, [providerKey]: false }));
+            console.error('获取模型列表失败:', e);
+            return null;
+        }
     };
 
     const getStatusColor = (modelId) => {
@@ -38750,6 +38798,13 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     <div className="flex items-center justify-between mb-2">
                                                         <div className={`text-[10px] font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('模型')}</div>
                                                         <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => fetchProviderModels(providerKey)}
+                                                                disabled={fetchingModels[providerKey] || !(providers[providerKey]?.url) || !(providers[providerKey]?.key || globalApiKey)}
+                                                                className={`text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 disabled:opacity-40' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-300 disabled:opacity-40'}`}
+                                                            >
+                                                                {fetchingModels[providerKey] ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} {t('获取模型')}
+                                                            </button>
                                                             <button
                                                                 onClick={() => importApiModelConfigs(providerKey)}
                                                                 className={`text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-300'}`}
