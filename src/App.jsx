@@ -5489,7 +5489,9 @@ function DreamApp() {
             url: DEFAULT_BASE_URL,
             apiType: 'openai',
             useProxy: false,
-            forceAsync: false
+            forceAsync: false,
+            modelsUrl: '',
+            useFullUrl: false
         };
         return {
             ...defaults,
@@ -12097,9 +12099,11 @@ function DreamApp() {
         const baseUrl = (provider?.url || '').replace(/\/+$/, '');
         if (!apiKey || !baseUrl) return null;
 
+        const modelsEndpoint = (provider?.modelsUrl || '').trim() || `${baseUrl}/v1/models`;
+
         setFetchingModels(prev => ({ ...prev, [providerKey]: true }));
         try {
-            const response = await fetch(`${baseUrl}/v1/models`, {
+            const response = await fetch(modelsEndpoint, {
                 method: 'GET',
                 headers: { Authorization: `Bearer ${apiKey}` },
             });
@@ -17767,6 +17771,9 @@ function DreamApp() {
                 // --- 发送请求逻辑 (通用) (Supports Failover) ---
                 // --- 发送请求逻辑 (通用) (Supports Failover) ---
 
+                const providerUseFullUrl = !!providers[providerKey]?.useFullUrl;
+                if (providerUseFullUrl && !requestOverride) endpoint = baseUrl;
+
                 // Helper to perform fetch
                 const performFetch = async (currentApiKey, currentBaseUrl) => {
                     const overrideUrl = requestOverride?.url || endpoint;
@@ -19018,6 +19025,9 @@ function DreamApp() {
                         requestOverride = null;
                     }
                 }
+
+                const providerUseFullUrl = !!providers[providerKey]?.useFullUrl;
+                if (providerUseFullUrl && !requestOverride) endpoint = baseUrl;
 
                 const overrideUrl = requestOverride?.url || endpoint;
                 const overrideMethod = (requestOverride?.method || 'POST').toString().toUpperCase();
@@ -38789,6 +38799,36 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                             className={`col-span-3 w-full rounded px-2 py-1 text-xs outline-none focus:border-blue-600/50 border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
                                                             placeholder="https://..."
                                                         />
+                                                    </div>
+                                                    <div className="grid grid-cols-4 items-center gap-2">
+                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('模型列表URL')}</label>
+                                                        <input
+                                                            type="text"
+                                                            value={providers[providerKey]?.modelsUrl || ''}
+                                                            onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], modelsUrl: e.target.value } }))}
+                                                            className={`col-span-3 w-full rounded px-2 py-1 text-xs outline-none focus:border-blue-600/50 border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
+                                                            placeholder={`${providers[providerKey]?.url || 'https://...'}/v1/models`}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-4 items-center gap-2">
+                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('完整URL')}</label>
+                                                        <div className="col-span-3 flex items-center gap-2">
+                                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={!!providers[providerKey]?.useFullUrl}
+                                                                    onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], useFullUrl: e.target.checked } }))}
+                                                                    className="sr-only peer"
+                                                                />
+                                                                <div className={`w-9 h-5 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/50 ${providers[providerKey]?.useFullUrl
+                                                                    ? 'bg-blue-600'
+                                                                    : theme === 'dark'
+                                                                        ? 'bg-zinc-700'
+                                                                        : 'bg-zinc-300'
+                                                                    } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
+                                                            </label>
+                                                            <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('开启后 Base URL 作为完整端点，不拼接路径')}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
 
