@@ -1722,25 +1722,13 @@ const styles = `
             isolation: isolate;
         }
         .node-wrapper::before {
-            content: "";
-            position: absolute;
-            left: 0.5rem;
-            right: 0.5rem;
-            top: -1px;
-            height: 2px;
-            border-radius: 999px;
-            background: #3b3b5c;
-            opacity: 0.45;
-            z-index: 45;
-            pointer-events: none;
+            display: none;
         }
         .node-wrapper.node-selected::before {
-            background: #7c5bf5;
-            opacity: 1;
+            display: none;
         }
         .node-wrapper.node-adjacent::before {
-            background: #9b7fff;
-            opacity: 0.9;
+            display: none;
         }
         .node-wrapper:hover {
             border-color: #4a4a6a;
@@ -1767,7 +1755,6 @@ const styles = `
         .perf-mode .node-wrapper {
             box-shadow: none !important;
             backdrop-filter: none !important;
-            border-radius: 0 !important;
             transition: none !important;
         }
         .perf-mode .connection-group {
@@ -27380,14 +27367,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                 <div
                     key={node.id}
                     data-node-id={node.id}
-                    className={`absolute node-wrapper flex flex-col ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
-                        ? 'ring-1 ring-purple-500'
+                    className={`absolute node-wrapper flex flex-col overflow-visible rounded-xl ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
+                        ? 'ring-2 ring-purple-500/40'
                         : theme === 'dark'
-                            ? 'border border-zinc-800'
+                            ? 'border border-[#333]/80'
                         : theme === 'solarized'
                             ? 'border border-[#eee8d5]'
                         : 'border border-zinc-200'
-                        } ${theme === 'dark' ? 'bg-[#16162a]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'}`}
+                        } ${theme === 'dark' ? 'bg-[#262626]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'}`}
                     style={{
                         left: node.x,
                         top: node.y,
@@ -27660,16 +27647,16 @@ ${inputText.substring(0, 15000)} ... (截断)
             <div
                 key={node.id}
                 data-node-id={node.id}
-                className={`absolute rounded-md transition-[box-shadow,border-color] duration-150 group flex flex-col node-wrapper ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
-                    ? 'border-purple-500/60 ring-1 ring-purple-500/70 shadow-[0_0_0_3px_rgba(124,91,245,0.12),0_10px_26px_rgba(0,0,0,0.22)]'
+                className={`absolute rounded-xl overflow-visible transition-[box-shadow,border-color] duration-150 group flex flex-col node-wrapper ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
+                    ? 'border-purple-500/50 ring-2 ring-purple-500/30 shadow-[0_0_0_2px_rgba(124,91,245,0.2),0_12px_40px_rgba(0,0,0,0.35)]'
                     : isAdjacent
-                        ? 'border-purple-300/50 ring-1 ring-purple-300/50 shadow-[0_8px_20px_rgba(124,91,245,0.12)]'
+                        ? 'border-purple-300/40 ring-1 ring-purple-300/30 shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
                         : theme === 'dark'
-                            ? 'border border-[#2a2a3e]/90 shadow-[0_8px_18px_rgba(0,0,0,0.32)]'
+                            ? 'border border-[#333]/80 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
                         : theme === 'solarized'
                             ? 'border border-[#d7cfb2] shadow-[0_8px_18px_rgba(88,110,117,0.10)]'
                         : 'border border-zinc-200 shadow-[0_8px_18px_rgba(24,24,27,0.08)]'
-                    } ${isHoverTarget && ((connectingSource && connectingSource !== node.id) || (connectingTarget && connectingTarget !== node.id)) ? 'ring-2 ring-purple-500/50' : ''} ${theme === 'dark' ? 'bg-[#16162a]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
+                    } ${isHoverTarget && ((connectingSource && connectingSource !== node.id) || (connectingTarget && connectingTarget !== node.id)) ? 'ring-2 ring-purple-500/40' : ''} ${theme === 'dark' ? 'bg-[#262626]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
                     }`}
                 style={{
                     left: node.x,
@@ -35084,40 +35071,29 @@ ${inputText.substring(0, 15000)} ... (截断)
             selectedNodeId
         ].filter(Boolean))
     ), [nodes, selectedNodeId, selectedNodeIds]);
-    const topBarButtonBase = 'flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all duration-150';
+    const topBarButtonBase = 'flex h-8 items-center gap-1.5 rounded-xl px-3 text-[13px] font-normal transition-all duration-150 cursor-pointer';
     const topBarButtonClass = (state = 'default') => {
         if (state === 'disabled') {
-            return `${topBarButtonBase} ${theme === 'dark'
-                ? 'border-[#1e1e2e] bg-[#12121a] text-zinc-600 cursor-not-allowed'
-                : theme === 'solarized'
-                    ? 'border-[#d7cfb2] bg-[#eee8d5] text-[#586e75]/50 cursor-not-allowed'
-                    : 'border-zinc-200 bg-zinc-50 text-zinc-400 cursor-not-allowed'
-                }`;
+            return `${topBarButtonBase} text-zinc-600 cursor-not-allowed opacity-50`;
         }
         if (state === 'primary') {
             return `${topBarButtonBase} ${theme === 'dark'
-                ? 'border-purple-500/40 bg-purple-500/15 text-purple-200 hover:bg-purple-500/25'
-                : theme === 'solarized'
-                    ? 'border-purple-700/40 bg-purple-700/15 text-purple-800 hover:bg-purple-700/25'
-                    : 'border-purple-500/40 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                ? 'bg-purple-500/20 text-purple-200 hover:bg-purple-500/30'
+                : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
                 }`;
         }
         if (state === 'active') {
             return `${topBarButtonBase} ${theme === 'dark'
-                ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25'
-                : theme === 'solarized'
-                    ? 'border-[#586e75]/40 bg-[#586e75]/15 text-[#475b62] hover:bg-[#586e75]/25'
-                    : 'border-indigo-500/30 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                ? 'bg-white/10 text-white hover:bg-white/15'
+                : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
                 }`;
         }
         return `${topBarButtonBase} ${theme === 'dark'
-            ? 'border-[#2a2a3e] bg-[#14141f]/70 text-zinc-300 hover:border-[#3a3a55] hover:bg-[#1a1a2a]'
-            : theme === 'solarized'
-                ? 'border-[#d7cfb2] bg-[#eee8d5] text-[#586e75] hover:bg-[#e6dec8]'
-                : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
+            ? 'text-zinc-300 hover:bg-white/10 hover:text-white'
+            : 'text-zinc-600 hover:bg-black/5 hover:text-zinc-900'
             }`;
     };
-    const sideToolButtonBase = 'flex h-9 w-9 items-center justify-center rounded-lg border transition-all duration-150';
+    const sideToolButtonBase = 'flex h-9 w-9 items-center justify-center rounded-[12px] transition-all duration-150 cursor-pointer';
 
     return (
         <>
@@ -35129,7 +35105,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 type={progressState.type}
             />
             <div
-                className={`dream-ui-refresh w-full h-screen font-sans overflow-hidden select-none flex flex-col transition-colors duration-300 ${theme === 'dark'
+                className={`dream-ui-refresh w-full h-screen font-sans overflow-hidden select-none relative transition-colors duration-300 ${theme === 'dark'
                     ? 'bg-[#0c0c14] text-white'
                     : theme === 'solarized'
                         ? 'bg-[#fdf6e3] text-[#586e75]'
@@ -35144,33 +35120,26 @@ ${inputText.substring(0, 15000)} ... (截断)
             >
                 {customNodeColor && (
                     <style>{`
-                        .node-wrapper::before { background: ${customNodeColor} !important; opacity: 0.7 !important; }
-                        .node-wrapper.node-selected::before { background: ${customNodeColor} !important; opacity: 1 !important; }
-                        .node-wrapper.node-selected { border-color: ${customNodeColor}99 !important; box-shadow: 0 0 0 3px ${customNodeColor}1f, 0 10px 26px rgba(0,0,0,0.22) !important; }
-                        .node-wrapper.node-adjacent::before { background: ${customNodeColor}cc !important; opacity: 0.9 !important; }
-                        .dream-ui-refresh .node-wrapper.node-selected { border-color: ${customNodeColor}d0 !important; box-shadow: 0 0 0 1px ${customNodeColor}5c, 0 18px 48px ${customNodeColor}28 !important; }
-                        .dream-ui-refresh .node-wrapper::before { background: linear-gradient(90deg, ${customNodeColor}, ${customNodeColor}88) !important; }
+                        .node-wrapper.node-selected { border-color: ${customNodeColor}99 !important; box-shadow: 0 0 0 2px ${customNodeColor}30, 0 12px 40px rgba(0,0,0,0.35) !important; }
+                        .dream-ui-refresh .node-wrapper.node-selected { border-color: ${customNodeColor}cc !important; box-shadow: 0 0 0 2px ${customNodeColor}40, 0 12px 40px ${customNodeColor}20 !important; }
                         .dream-ui-refresh .connector:hover, .dream-ui-refresh .connector.active, .dream-ui-refresh .input-point.active, .dream-ui-refresh .input-point.connected { background: ${customNodeColor} !important; }
                     `}</style>
                 )}
-                {/* Top Bar */}
-                <div
-                    className={`h-12 flex items-center justify-between px-4 z-50 shrink-0 border-b transition-colors duration-300 ${theme === 'dark'
-                        ? 'bg-[#0e0e18]/95 border-[#2a2a3e] backdrop-blur-md'
-                    : theme === 'solarized'
-                        ? 'bg-[#eee8d5] border-[#d7cfb2]'
-                            : 'bg-white border-zinc-200'
-                        }`}
+                {/* Top Bar - Floating nav overlay */}
+                <nav
+                    className="pointer-events-none absolute left-0 right-0 z-50 flex h-12 items-center justify-between pl-4 pr-4"
+                    style={{ top: 16 }}
                 >
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${theme === 'dark'
-                            ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
-                            : theme === 'solarized'
-                                ? 'border-[#d7cfb2] bg-[#fdf6e3] text-[#586e75]'
-                                : 'border-zinc-200 bg-zinc-50 text-zinc-700'
-                            }`}>
-                            <Layers size={16} />
+                    <div className={`pointer-events-auto flex items-center gap-3 min-w-0 h-10 rounded-xl px-3 ${theme === 'dark'
+                        ? 'bg-[#1a1a2e]/80 border border-[#2a2a3e]/60 backdrop-blur-lg shadow-lg shadow-black/20'
+                        : theme === 'solarized'
+                            ? 'bg-[#eee8d5]/90 border border-[#d7cfb2] backdrop-blur-lg'
+                            : 'bg-white/90 border border-zinc-200 backdrop-blur-lg shadow-sm'
+                        }`}>
+                        <div className={`flex items-center justify-center cursor-pointer ${theme === 'dark' ? 'text-zinc-200 hover:text-white' : 'text-zinc-700 hover:text-zinc-900'}`}>
+                            <Layers size={18} />
                         </div>
+                        <div className={`h-4 w-px ${theme === 'dark' ? 'bg-[#2a2a3e]' : 'bg-zinc-200'}`}></div>
                         <span
                             className={`font-semibold text-sm ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'
                                 }`}
@@ -35210,7 +35179,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     setIsEditingProjectName(true);
                                     setTimeout(() => projectNameInputRef.current?.focus(), 0);
                                 }}
-                                className={`ml-2 text-xs cursor-pointer hover:underline ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+                                className={`text-sm font-medium cursor-text border-b border-dashed border-transparent bg-transparent outline-none truncate max-w-[160px] ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'
                                     }`}
                                 title={t('点击编辑项目名称')}
                             >
@@ -35230,7 +35199,12 @@ ${inputText.substring(0, 15000)} ... (截断)
                             <Plus size={12} />
                         </button>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className={`pointer-events-auto flex items-center gap-1.5 h-10 rounded-xl px-2.5 ${theme === 'dark'
+                        ? 'bg-[#1a1a2e]/80 border border-[#2a2a3e]/60 backdrop-blur-lg shadow-lg shadow-black/20'
+                        : theme === 'solarized'
+                            ? 'bg-[#eee8d5]/90 border border-[#d7cfb2] backdrop-blur-lg'
+                            : 'bg-white/90 border border-zinc-200 backdrop-blur-lg shadow-sm'
+                        }`}>
                         <button
                             onClick={handleCanvasStartFolderLoop}
                             disabled={!canvasRunnableFolderLoopNode}
@@ -35346,7 +35320,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             {t('API 设置')}
                         </Button>
                     </div>
-                </div>
+                </nav>
 
                 {/* Appearance Dropdown Panel */}
                 {appearanceDropdownOpen && (
@@ -35360,8 +35334,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     : 'bg-white/95 border-zinc-200'
                             }`}
                             style={{
-                                top: 48,
-                                right: 220,
+                                top: 72,
+                                right: 16,
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -35532,26 +35506,27 @@ ${inputText.substring(0, 15000)} ... (截断)
                 {/* Hidden file inputs for per-node background */}
                 <input ref={perNodeBgInputRef} type="file" accept="image/*" className="hidden" onChange={handlePerNodeBgUpload} />
 
-                <div className={`flex-1 relative overflow-hidden flex transition-colors duration-300 ${theme === 'dark'
+                <div className={`w-full h-full relative overflow-hidden flex transition-colors duration-300 ${theme === 'dark'
                     ? 'bg-[#0c0c14]'
                     : theme === 'solarized'
                         ? 'bg-[#fdf6e3]'
                         : 'bg-zinc-100'
                     }`}>
-                    {/* Sidebar */}
+                    {/* Sidebar - Floating pill */}
                     <div
-                        className={`w-14 border-r flex flex-col items-center py-3 gap-1.5 z-40 shrink-0 transition-colors duration-300 ${theme === 'dark'
-                            ? 'bg-[#0e0e18]/95 border-[#2a2a3e] backdrop-blur-md'
+                        data-sidebar-container="true"
+                        className={`absolute left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-1.5 rounded-xl p-2 transition-colors duration-300 ${theme === 'dark'
+                            ? 'bg-[#1a1a2e]/80 border border-[#2a2a3e]/60 backdrop-blur-lg shadow-lg shadow-black/30'
                             : theme === 'solarized'
-                                ? 'bg-[#eee8d5] border-[#d7cfb2]'
-                                : 'bg-white border-zinc-200'
+                                ? 'bg-[#eee8d5]/90 border border-[#d7cfb2] backdrop-blur-lg'
+                                : 'bg-white/90 border border-zinc-200 backdrop-blur-lg shadow-sm'
                             }`}
                     >
                         <button
                             onClick={autoArrangeNodes}
                             className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
-                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
+                                ? 'text-zinc-400 hover:text-purple-300 hover:bg-white/10'
+                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                                 }`}
                             title={t('自动整理节点（对齐、排列、去除堆叠）')}
                         >
@@ -35567,30 +35542,28 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 }}
                                 className={`${sideToolButtonBase} ${activeTool === tool.id
                                     ? theme === 'dark'
-                                        ? 'border-purple-500/30 bg-purple-500/15 text-purple-200'
+                                        ? 'bg-purple-500/20 text-purple-200'
                                         : theme === 'solarized'
-                                            ? 'border-[#586e75]/40 bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
-                                            : 'border-zinc-300 bg-zinc-100 text-zinc-900'
+                                            ? 'bg-[#616161] text-[#fdf6e3]'
+                                            : 'bg-zinc-100 text-zinc-900'
                                     : theme === 'dark'
-                                        ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
-                                        : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
+                                        ? 'text-zinc-400 hover:text-purple-300 hover:bg-white/10'
+                                        : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                                     }`}
                             >
                                 <tool.icon size={18} />
                             </button>
                         ))}
-                        <div className="flex-1"></div>
+                        <div className={`my-1 h-px w-5 shrink-0 ${theme === 'dark' ? 'bg-[#2a2a3e]' : 'bg-zinc-200'}`}></div>
                         <button
                             onClick={() => setIsChatOpen(!isChatOpen)}
                             className={`${sideToolButtonBase} mb-1 ${isChatOpen
-                                ? theme === 'solarized'
-                                    ? 'border-[#586e75]/40 bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
-                                    : theme === 'dark'
-                                        ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200'
-                                        : 'border-sky-500/30 bg-sky-50 text-sky-700'
+                                ? theme === 'dark'
+                                    ? 'bg-purple-500/20 text-purple-200'
+                                    : 'bg-zinc-100 text-zinc-900'
                                 : theme === 'dark'
-                                    ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
-                                    : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
+                                    ? 'text-zinc-400 hover:text-purple-300 hover:bg-white/10'
+                                    : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                                 }`}
                             title={t('AI 对话')}
                         >
@@ -35600,8 +35573,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={handleSaveProject}
                             className={`${sideToolButtonBase} ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
-                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
+                                ? 'text-zinc-400 hover:text-purple-300 hover:bg-white/10'
+                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                                 }`}
                             title={t('保存项目')}
                         >
@@ -35610,8 +35583,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={handleLoadProject}
                             className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
-                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
+                                ? 'text-zinc-400 hover:text-purple-300 hover:bg-white/10'
+                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                                 }`}
                             title={t('加载项目')}
                         >
@@ -35620,8 +35593,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={handleImportWorkflow}
                             className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
-                                : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
+                                ? 'text-zinc-400 hover:text-purple-300 hover:bg-white/10'
+                                : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                                 }`}
                             title={t('导入工作流')}
                         >
@@ -35632,11 +35605,11 @@ ${inputText.substring(0, 15000)} ... (截断)
                     {/* History Panel */}
                     {historyOpen && (
                         <div
-                            className={`w-72 z-30 flex flex-col animate-in slide-in-from-left border-r transition-colors duration-300 ${theme === 'dark'
-                                ? 'bg-[#12121c] border-[#2a2a3e]'
+                            className={`absolute left-16 top-20 bottom-4 w-72 z-30 flex flex-col rounded-xl overflow-hidden animate-in slide-in-from-left transition-colors duration-300 ${theme === 'dark'
+                                ? 'bg-[#1a1a2e]/95 border border-[#2a2a3e]/60 backdrop-blur-lg shadow-xl shadow-black/30'
                                 : theme === 'solarized'
-                                    ? 'bg-[#fdf6e3] border-[#d7cfb2]'
-                                    : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5]' : 'bg-zinc-50 border-zinc-200'
+                                    ? 'bg-[#fdf6e3]/95 border border-[#d7cfb2] backdrop-blur-lg'
+                                    : 'bg-white/95 border border-zinc-200 backdrop-blur-lg shadow-lg'
                                 }`}
                         >
                             <div
@@ -36442,11 +36415,11 @@ ${inputText.substring(0, 15000)} ... (截断)
                     {/* Characters Panel */}
                     {charactersOpen && (
                         <div
-                            className={`w-72 z-30 flex flex-col animate-in slide-in-from-left border-r transition-colors duration-300 ${theme === 'dark'
-                                ? 'bg-[#12121c] border-zinc-800'
+                            className={`absolute left-16 top-20 bottom-4 w-72 z-30 flex flex-col rounded-xl overflow-hidden animate-in slide-in-from-left transition-colors duration-300 ${theme === 'dark'
+                                ? 'bg-[#1a1a2e]/95 border border-[#2a2a3e]/60 backdrop-blur-lg shadow-xl shadow-black/30'
                                 : theme === 'solarized'
-                                    ? 'bg-[#eee8d5] border-[#d7cfb2]'
-                                    : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5]' : 'bg-zinc-50 border-zinc-200'
+                                    ? 'bg-[#fdf6e3]/95 border border-[#d7cfb2] backdrop-blur-lg'
+                                    : 'bg-white/95 border border-zinc-200 backdrop-blur-lg shadow-lg'
                                 }`}
                         >
                             <div
@@ -36957,11 +36930,11 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {/* Chat Sidebar Panel */}
                         <div
-                            className={`fixed right-0 top-12 bottom-0 border-l shadow-2xl flex flex-col z-50 transition-transform duration-300 ease-in-out select-text ${theme === 'dark'
-                                ? 'bg-[#12121c] border-zinc-800'
+                            className={`fixed right-4 top-20 bottom-4 rounded-xl border shadow-2xl flex flex-col z-50 transition-transform duration-300 ease-in-out select-text overflow-hidden ${theme === 'dark'
+                                ? 'bg-[#1a1a2e]/95 border-[#2a2a3e]/60 backdrop-blur-lg shadow-black/30'
                                 : theme === 'solarized'
-                                    ? 'bg-[#eee8d5] border-[#d7cfb2]'
-                                    : 'bg-white border-zinc-200'
+                                    ? 'bg-[#eee8d5]/95 border-[#d7cfb2] backdrop-blur-lg'
+                                    : 'bg-white/95 border-zinc-200 backdrop-blur-lg'
                                 } ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}
                             style={{
                                 width: chatWidth,

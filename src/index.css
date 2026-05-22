@@ -243,82 +243,55 @@ html.theme-solarized .dream-ui-refresh {
     letter-spacing: 0;
 }
 
-.dream-ui-refresh > div:first-of-type {
-    background: var(--dream-surface-strong) !important;
-    border-bottom: 1px solid var(--dream-border) !important;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 30px rgba(0, 0, 0, 0.16);
-    backdrop-filter: blur(18px);
-}
-
-.dream-ui-refresh > div:nth-of-type(2) {
-    background: var(--dream-bg) !important;
-}
-
-.dream-ui-refresh > div:nth-of-type(2) > div:first-child {
-    background: var(--dream-surface-strong) !important;
-    border-right: 1px solid var(--dream-border) !important;
-    box-shadow: 10px 0 28px rgba(0, 0, 0, 0.12);
-}
-
 .dream-ui-refresh #canvas-bg {
     background-color: var(--dream-bg) !important;
     background-image:
-        linear-gradient(rgba(130, 120, 200, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(130, 120, 200, 0.04) 1px, transparent 1px),
-        radial-gradient(circle at center, rgba(124, 91, 245, 0.22) 1px, transparent 1.6px) !important;
-    background-size: 48px 48px, 48px 48px, 24px 24px !important;
-    box-shadow: inset 0 0 0 1px rgba(130, 120, 200, 0.04);
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 1px, transparent 1px) !important;
+    background-size: 24px 24px !important;
 }
 
 html.theme-light .dream-ui-refresh #canvas-bg,
 html.theme-solarized .dream-ui-refresh #canvas-bg {
     background-image:
-        linear-gradient(rgba(60, 50, 100, 0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(60, 50, 100, 0.06) 1px, transparent 1px),
-        radial-gradient(circle at center, rgba(107, 79, 216, 0.18) 1px, transparent 1.6px) !important;
+        radial-gradient(circle at center, rgba(0, 0, 0, 0.1) 1px, transparent 1px) !important;
 }
 
 .dream-ui-refresh .node-wrapper {
-    border-radius: 10px !important;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
-        var(--dream-surface) !important;
+    border-radius: 12px !important;
+    background: rgba(38, 38, 38, 0.95) !important;
     border: 1px solid var(--dream-border) !important;
     box-shadow: var(--dream-shadow-soft) !important;
-    overflow: hidden;
+    overflow: visible;
+    backdrop-filter: blur(1.5px);
+    transition: box-shadow 0.2s, border-color 0.15s;
 }
 
 .dream-ui-refresh .node-wrapper::before {
-    left: 0;
-    right: 0;
-    top: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--dream-accent), var(--dream-accent-2));
-    opacity: 0.65;
+    display: none;
 }
 
 .dream-ui-refresh .node-wrapper:hover {
-    border-color: var(--dream-border-strong) !important;
-    box-shadow: var(--dream-shadow) !important;
+    border-color: rgba(124, 91, 245, 0.4) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
 }
 
 .dream-ui-refresh .node-wrapper.node-selected {
-    border-color: rgba(124, 91, 245, 0.78) !important;
+    border-color: rgba(124, 91, 245, 0.7) !important;
     box-shadow:
-        0 0 0 1px rgba(124, 91, 245, 0.32),
-        0 18px 48px rgba(124, 91, 245, 0.14) !important;
+        0 0 0 2px rgba(124, 91, 245, 0.25),
+        0 12px 40px rgba(0, 0, 0, 0.35) !important;
 }
 
 .dream-ui-refresh .node-wrapper.node-selected::before {
-    opacity: 1;
+    display: none;
 }
 
 .dream-ui-refresh .node-wrapper.node-adjacent {
-    border-color: rgba(91, 138, 245, 0.58) !important;
+    border-color: rgba(91, 138, 245, 0.5) !important;
 }
 
 .dream-ui-refresh button {
-    border-radius: 8px !important;
+    border-radius: 12px !important;
 }
 
 .dream-ui-refresh button:not(:disabled) {
