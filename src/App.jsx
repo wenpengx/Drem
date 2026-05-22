@@ -875,7 +875,7 @@ const ArtisticProgress = ({ visible, progress, status, type }) => {
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-300 pointer-events-none select-none">
-            <div className="relative bg-[#09090b]/90 border border-white/10 rounded-2xl p-8 shadow-2xl flex flex-col items-center min-w-[300px] backdrop-blur-xl">
+            <div className="relative bg-[#0c0c14]/90 border border-white/10 rounded-2xl p-8 shadow-2xl flex flex-col items-center min-w-[300px] backdrop-blur-xl">
                 {/* 装饰性光晕 */}
                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-blue-500/20 blur-[50px] rounded-full pointer-events-none" />
 
@@ -1729,21 +1729,21 @@ const styles = `
             top: -1px;
             height: 2px;
             border-radius: 999px;
-            background: #52525b;
+            background: #3b3b5c;
             opacity: 0.45;
             z-index: 45;
             pointer-events: none;
         }
         .node-wrapper.node-selected::before {
-            background: #38bdf8;
+            background: #7c5bf5;
             opacity: 1;
         }
         .node-wrapper.node-adjacent::before {
-            background: #7dd3fc;
+            background: #9b7fff;
             opacity: 0.9;
         }
         .node-wrapper:hover {
-            border-color: #71717a;
+            border-color: #4a4a6a;
         }
         
         /* 节点内图片渲染优化 - 使用高质量渲染 */
@@ -1785,8 +1785,8 @@ const styles = `
         
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .theme-dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
-        .theme-dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        .theme-dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #2e2e4a; border-radius: 2px; }
+        .theme-dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3a3a5c; }
         .theme-light .custom-scrollbar::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 2px; }
         .theme-light .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
         .theme-solarized .custom-scrollbar::-webkit-scrollbar-thumb { background: #c9c2a8; border-radius: 2px; }
@@ -1820,11 +1820,11 @@ const styles = `
         .node-wrapper:hover .resize-handle { opacity: 1; }
         
         /* 连接点样式 */
-        .connector { position: absolute; top: 50%; transform: translateY(-50%); width: 1rem; height: 1.35rem; background-color: #18181b; border: 1px solid #52525b; color: #a1a1aa; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: crosshair; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s, color 0.16s; z-index: 35; opacity: 0; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+        .connector { position: absolute; top: 50%; transform: translateY(-50%); width: 1rem; height: 1.35rem; background-color: #16162a; border: 1px solid #3a3a5c; color: #a1a1aa; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: crosshair; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s, color 0.16s; z-index: 35; opacity: 0; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
         .node-wrapper:hover .connector { opacity: 1; }
-        .connector:hover, .connector.active { background-color: #0f172a; border-color: #38bdf8; transform: translateY(-50%) scale(1.04); opacity: 1; color: #e0f2fe; }
+        .connector:hover, .connector.active { background-color: #1a1a2e; border-color: #7c5bf5; transform: translateY(-50%) scale(1.04); opacity: 1; color: #ede9fe; }
         .connector-right { right: -0.5rem; }
-        .theme-light .connector { background-color: #ffffff; border-color: #d4d4d8; color: #71717a; box-shadow: 0 2px 8px rgba(24,24,27,0.10); }
+        .theme-light .connector { background-color: #ffffff; border-color: #d4d4d8; color: #5a5a7a; box-shadow: 0 2px 8px rgba(24,24,27,0.10); }
         .theme-light .connector:hover,
         .theme-light .connector.active { background-color: #f8fafc; border-color: #0284c7; color: #0369a1; }
         .theme-solarized .connector { background-color: #fdf6e3; border-color: #d7cfb2; color: #586e75; box-shadow: 0 2px 8px rgba(88,110,117,0.12); }
@@ -1832,10 +1832,10 @@ const styles = `
         .theme-solarized .connector.active { background-color: #eee8d5; border-color: #586e75; color: #475b62; }
         
         /* 输入点样式 */
-        .input-point { position: absolute; top: 50%; transform: translateY(-50%); left: -0.3rem; width: 0.6rem; height: 1.15rem; background-color: #27272a; border-radius: 0.35rem; border: 1px solid #52525b; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s; z-index: 25; cursor: crosshair; opacity: 0.65; }
-        .node-wrapper:hover .input-point { background-color: #3f3f46; opacity: 1; }
-        .input-point.connected { background-color: #075985; border-color: #38bdf8; box-shadow: none; opacity: 1; }
-        .input-point.active { background-color: #0f172a; border-color: #38bdf8; transform: translateY(-50%) scale(1.08); box-shadow: 0 0 0 3px rgba(56,189,248,0.18); opacity: 1; }
+        .input-point { position: absolute; top: 50%; transform: translateY(-50%); left: -0.3rem; width: 0.6rem; height: 1.15rem; background-color: #1e1e32; border-radius: 0.35rem; border: 1px solid #3a3a5c; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s; z-index: 25; cursor: crosshair; opacity: 0.65; }
+        .node-wrapper:hover .input-point { background-color: #2e2e4a; opacity: 1; }
+        .input-point.connected { background-color: #2e1a65; border-color: #7c5bf5; box-shadow: none; opacity: 1; }
+        .input-point.active { background-color: #1a1a2e; border-color: #7c5bf5; transform: translateY(-50%) scale(1.08); box-shadow: 0 0 0 3px rgba(124,91,245,0.18); opacity: 1; }
         .theme-light .input-point { background-color: #f4f4f5; border-color: #d4d4d8; }
         .theme-light .node-wrapper:hover .input-point { background-color: #e4e4e7; }
         .theme-light .input-point.connected { background-color: #e0f2fe; border-color: #0284c7; }
@@ -1882,24 +1882,24 @@ const styles = `
         /* Markdown Styles for Chat */
         .markdown-body { font-size: 13px; line-height: 1.5; color: #e4e4e7; word-wrap: break-word; user-select: text !important; cursor: text; }
         .markdown-body * { user-select: text !important; cursor: text; }
-        .markdown-body pre { background: #27272a; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; user-select: text !important; cursor: text; }
-        .markdown-body code { font-family: monospace; background: #3f3f46; padding: 2px 4px; border-radius: 4px; font-size: 12px; user-select: text !important; cursor: text; }
+        .markdown-body pre { background: #1e1e32; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; user-select: text !important; cursor: text; }
+        .markdown-body code { font-family: monospace; background: #2e2e4a; padding: 2px 4px; border-radius: 4px; font-size: 12px; user-select: text !important; cursor: text; }
         .markdown-body pre code { background: transparent; padding: 0; color: #a1a1aa; user-select: text !important; cursor: text; }
         .markdown-body p { margin-bottom: 8px; user-select: text !important; cursor: text; }
         .markdown-body ul, .markdown-body ol { margin-left: 20px; margin-bottom: 8px; list-style: disc; user-select: text !important; cursor: text; }
         .markdown-body li { user-select: text !important; cursor: text; }
         .markdown-body video { max-width: 100%; border-radius: 0.5rem; margin-top: 0.5rem; }
         .markdown-body table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-        .markdown-body table th, .markdown-body table td { border: 1px solid #3f3f46; padding: 8px 12px; text-align: left; }
-        .markdown-body table th { background-color: #3f3f46; font-weight: 600; }
-        .markdown-body table tr:nth-child(even) { background-color: #27272a; }
+        .markdown-body table th, .markdown-body table td { border: 1px solid #2e2e4a; padding: 8px 12px; text-align: left; }
+        .markdown-body table th { background-color: #2e2e4a; font-weight: 600; }
+        .markdown-body table tr:nth-child(even) { background-color: #1e1e32; }
         .theme-light .markdown-body table th, .theme-light .markdown-body table td { border-color: #d4d4d8; }
         .theme-light .markdown-body table th { background-color: #e4e4e7; }
         .theme-light .markdown-body table tr:nth-child(even) { background-color: #f4f4f5; }
-        .theme-light .markdown-body { color: #18181b; }
-        .theme-light .markdown-body pre { background: #f4f4f5; color: #18181b; }
-        .theme-light .markdown-body code { background: #e4e4e7; color: #18181b; }
-        .theme-light .markdown-body pre code { color: #18181b; }
+        .theme-light .markdown-body { color: #16162a; }
+        .theme-light .markdown-body pre { background: #f4f4f5; color: #16162a; }
+        .theme-light .markdown-body code { background: #e4e4e7; color: #16162a; }
+        .theme-light .markdown-body pre code { color: #16162a; }
         .theme-solarized .markdown-body table th, .theme-solarized .markdown-body table td { border-color: #d7cfb2; }
         .theme-solarized .markdown-body table th { background-color: #ddddc1; }
         .theme-solarized .markdown-body table tr:nth-child(even) { background-color: #eee8d5; }
@@ -4299,7 +4299,7 @@ const ImageCompareView = React.memo(({ img1, img2, theme = 'dark', language }) =
         <div
             ref={containerRef}
             className={`relative w-full h-full cursor-col-resize overflow-hidden group rounded-lg select-none shadow-2xl border ${isDark
-                ? 'border-zinc-800 bg-[#09090b]'
+                ? 'border-zinc-800 bg-[#0c0c14]'
                 : isSolarized
                     ? 'border-[#eee8d5] bg-[#eee8d5]'
                     : 'border-zinc-200 bg-zinc-100'
@@ -4346,9 +4346,9 @@ const ImageCompareView = React.memo(({ img1, img2, theme = 'dark', language }) =
 const Button = React.memo(({ children, onClick, className = '', variant = 'primary', icon: Icon, disabled = false, title = '' }) => {
     const baseStyle = 'flex items-center justify-center px-3 py-1.5 rounded-lg transition-all duration-200 font-medium text-xs select-none disabled:opacity-50 disabled:cursor-not-allowed';
     const variants = {
-        primary: 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 active:scale-95',
-        secondary: 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 active:scale-95',
-        ghost: 'bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-white',
+        primary: 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/25 active:scale-95',
+        secondary: 'bg-[#1a1a2a] hover:bg-[#22223a] text-zinc-300 border border-[#2a2a3e] active:scale-95',
+        ghost: 'bg-transparent hover:bg-[#1a1a2a] text-zinc-400 hover:text-white',
         danger: 'bg-red-900/30 hover:bg-red-800 text-red-200 border border-red-800 active:scale-95',
     };
     return (
@@ -4378,10 +4378,10 @@ const Modal = ({ isOpen, onClose, title, children, theme = 'dark' }) => {
     const isSolarized = theme === 'solarized';
     return (
         // V3.4.8: 改用 onMouseDown 关闭，避免拖拽到外部时误触 (onClick 会在 mouseUp 时触发)
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onMouseDown={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md" onMouseDown={onClose}>
             <div
-                className={`rounded-xl shadow-2xl w-[680px] max-w-[90vw] overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] border ${isDark
-                    ? 'bg-[#09090b] border-zinc-800'
+                className={`rounded-2xl shadow-2xl w-[680px] max-w-[90vw] overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] border ${isDark
+                    ? 'bg-[#12121c] border-[#2a2a3e]'
                     : isSolarized
                         ? 'bg-[#eee8d5] border-[#d7cfb2]'
                         : 'bg-white border-zinc-200'
@@ -4391,7 +4391,7 @@ const Modal = ({ isOpen, onClose, title, children, theme = 'dark' }) => {
             >
                 <div
                     className={`flex items-center justify-between p-5 border-b shrink-0 ${isDark
-                        ? 'border-zinc-800/50'
+                        ? 'border-[#2a2a3e]/60'
                         : isSolarized
                             ? 'border-[#d7cfb2]'
                             : 'border-zinc-200'
@@ -4401,7 +4401,7 @@ const Modal = ({ isOpen, onClose, title, children, theme = 'dark' }) => {
                     <button
                         onClick={onClose}
                         className={isDark
-                            ? 'text-zinc-500 hover:text-white'
+                            ? 'text-zinc-500 hover:text-white transition-colors'
                             : isSolarized
                                 ? 'text-zinc-600 hover:text-zinc-900'
                                 : 'text-zinc-500 hover:text-zinc-900'}
@@ -4410,7 +4410,7 @@ const Modal = ({ isOpen, onClose, title, children, theme = 'dark' }) => {
                     </button>
                 </div>
                 <div className={`p-0 overflow-y-auto custom-scrollbar flex-1 ${isDark
-                    ? 'bg-[#09090b]'
+                    ? 'bg-[#12121c]'
                     : isSolarized
                         ? 'bg-[#eee8d5]'
                         : 'bg-white'
@@ -4963,7 +4963,7 @@ function DreamApp() {
         root.classList.remove('theme-dark', 'theme-light', 'theme-solarized');
         if (theme === 'dark') {
             root.classList.add('theme-dark');
-            document.body.style.backgroundColor = '#09090b';
+            document.body.style.backgroundColor = '#0c0c14';
         } else if (theme === 'solarized') {
             root.classList.add('theme-solarized');
             document.body.style.backgroundColor = '#fdf6e3';
@@ -27103,10 +27103,10 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     fill="none"
                                     style={{ pointerEvents: 'stroke' }}
                                 />
-                                <path d={`M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`} stroke="#18181b" strokeWidth="4" fill="none" />
-                                <path d={`M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`} stroke="#71717a" strokeWidth="2" fill="none" />
-                                <circle cx={startX} cy={startY} r="2" fill="#71717a" />
-                                <circle cx={endX} cy={endY} r="2" fill="#71717a" />
+                                <path d={`M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`} stroke="#16162a" strokeWidth="4" fill="none" />
+                                <path d={`M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`} stroke="#5a5a7a" strokeWidth="2" fill="none" />
+                                <circle cx={startX} cy={startY} r="2" fill="#5a5a7a" />
+                                <circle cx={endX} cy={endY} r="2" fill="#5a5a7a" />
                                 {/* 删除按钮：使用更大的透明热区确保可点击，必须在最后渲染以覆盖透明 path */}
                                 <g
                                     className="connection-delete cursor-pointer"
@@ -27381,13 +27381,13 @@ ${inputText.substring(0, 15000)} ... (截断)
                     key={node.id}
                     data-node-id={node.id}
                     className={`absolute node-wrapper flex flex-col ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
-                        ? 'ring-1 ring-sky-500'
+                        ? 'ring-1 ring-purple-500'
                         : theme === 'dark'
                             ? 'border border-zinc-800'
                         : theme === 'solarized'
                             ? 'border border-[#eee8d5]'
                         : 'border border-zinc-200'
-                        } ${theme === 'dark' ? 'bg-[#18181b]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'}`}
+                        } ${theme === 'dark' ? 'bg-[#16162a]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'}`}
                     style={{
                         left: node.x,
                         top: node.y,
@@ -27395,9 +27395,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                         height: node.height,
                         cursor: (dragNodeId === node.id || (dragNodeId && selectedNodeIds.has(node.id))) ? 'grabbing' : 'default',
                         zIndex: nodeZIndex,
-                        border: `1px solid ${theme === 'dark' ? '#3f3f46' : theme === 'solarized' ? '#eee8d5' : '#e4e4e7'}`,
-                        background: theme === 'dark' ? '#18181b' : theme === 'solarized' ? '#eee8d5' : '#fff',
-                        boxShadow: isSelected ? '0 0 0 1px rgba(56,189,248,0.24)' : 'none',
+                        border: `1px solid ${theme === 'dark' ? '#2e2e4a' : theme === 'solarized' ? '#eee8d5' : '#e4e4e7'}`,
+                        background: theme === 'dark' ? '#16162a' : theme === 'solarized' ? '#eee8d5' : '#fff',
+                        boxShadow: isSelected ? '0 0 0 1px rgba(124,91,245,0.3)' : 'none',
                         borderRadius: '6px',
                         transform: 'translateZ(0)',
                         backfaceVisibility: 'hidden'
@@ -27552,7 +27552,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         left: '-0.25rem',
                                         width: '0.5rem',
                                         height: '0.5rem',
-                                        backgroundColor: isConnected ? '#60a5fa' : '#52525b',
+                                        backgroundColor: isConnected ? '#60a5fa' : '#3a3a5c',
                                         borderRadius: '50%',
                                         position: 'absolute',
                                         zIndex: 20,
@@ -27575,7 +27575,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         left: '-0.25rem',
                                         width: '0.5rem',
                                         height: '0.5rem',
-                                        backgroundColor: isConnected ? '#60a5fa' : '#52525b',
+                                        backgroundColor: isConnected ? '#60a5fa' : '#3a3a5c',
                                         borderRadius: '50%',
                                         position: 'absolute',
                                         zIndex: 20,
@@ -27600,7 +27600,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     left: '-0.25rem',
                                     width: '0.5rem',
                                     height: '0.5rem',
-                                    backgroundColor: isConnected ? '#60a5fa' : '#52525b',
+                                    backgroundColor: isConnected ? '#60a5fa' : '#3a3a5c',
                                     borderRadius: '50%',
                                     position: 'absolute',
                                     zIndex: 20,
@@ -27627,8 +27627,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 right: '-0.45rem',
                                 width: '0.9rem',
                                 height: '0.9rem',
-                                backgroundColor: connectingSource === node.id ? '#d4d4d8' : '#27272a',
-                                border: '1px solid #71717a',
+                                backgroundColor: connectingSource === node.id ? '#d4d4d8' : '#1e1e32',
+                                border: '1px solid #5a5a7a',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -27661,15 +27661,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                 key={node.id}
                 data-node-id={node.id}
                 className={`absolute rounded-md transition-[box-shadow,border-color] duration-150 group flex flex-col node-wrapper ${isSelected ? 'node-selected' : ''} ${isAdjacent ? 'node-adjacent' : ''} ${isSelected
-                    ? 'border-sky-500/60 ring-1 ring-sky-500/70 shadow-[0_0_0_3px_rgba(14,165,233,0.12),0_10px_26px_rgba(0,0,0,0.22)]'
+                    ? 'border-purple-500/60 ring-1 ring-purple-500/70 shadow-[0_0_0_3px_rgba(124,91,245,0.12),0_10px_26px_rgba(0,0,0,0.22)]'
                     : isAdjacent
-                        ? 'border-sky-300/50 ring-1 ring-sky-300/50 shadow-[0_8px_20px_rgba(14,165,233,0.12)]'
+                        ? 'border-purple-300/50 ring-1 ring-purple-300/50 shadow-[0_8px_20px_rgba(124,91,245,0.12)]'
                         : theme === 'dark'
-                            ? 'border border-zinc-800/90 shadow-[0_8px_18px_rgba(0,0,0,0.26)]'
+                            ? 'border border-[#2a2a3e]/90 shadow-[0_8px_18px_rgba(0,0,0,0.32)]'
                         : theme === 'solarized'
                             ? 'border border-[#d7cfb2] shadow-[0_8px_18px_rgba(88,110,117,0.10)]'
                         : 'border border-zinc-200 shadow-[0_8px_18px_rgba(24,24,27,0.08)]'
-                    } ${isHoverTarget && ((connectingSource && connectingSource !== node.id) || (connectingTarget && connectingTarget !== node.id)) ? 'ring-2 ring-green-500/50' : ''} ${theme === 'dark' ? 'bg-[#18181b]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
+                    } ${isHoverTarget && ((connectingSource && connectingSource !== node.id) || (connectingTarget && connectingTarget !== node.id)) ? 'ring-2 ring-purple-500/50' : ''} ${theme === 'dark' ? 'bg-[#16162a]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
                     }`}
                 style={{
                     left: node.x,
@@ -27875,7 +27875,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
 
                 <div
-                    className={`overflow-hidden rounded-md flex-1 flex flex-col pointer-events-none h-full w-full relative ${theme === 'dark' ? 'bg-[#18181b]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
+                    className={`overflow-hidden rounded-md flex-1 flex flex-col pointer-events-none h-full w-full relative ${theme === 'dark' ? 'bg-[#16162a]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
                         }`}
                 >
                     {/* V2.6.1 Feature: New Node Types Rendering */}
@@ -27950,7 +27950,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {activeDropdown?.nodeId === node.id && activeDropdown.type === 'extract-model' && (
                                                 <div
                                                     className={`absolute top-full left-0 mt-1 w-64 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                        ? 'bg-[#18181b] border-zinc-700'
+                                                        ? 'bg-[#16162a] border-zinc-700'
                                                         : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                         }`}
                                                     onMouseDown={(e) => e.stopPropagation()}
@@ -28239,7 +28239,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'desc-model' && (
                                                         <div
                                                             className={`absolute top-full left-0 mt-1 w-64 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             onMouseDown={(e) => e.stopPropagation()}
@@ -28480,7 +28480,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'role-video-model' && (
                                                         <div
                                                             className={`absolute top-full left-0 mt-1 w-64 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             onMouseDown={(e) => e.stopPropagation()}
@@ -28753,7 +28753,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'role-image-model' && (
                                                         <div
                                                             className={`absolute top-full left-0 mt-1 w-64 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             onMouseDown={(e) => e.stopPropagation()}
@@ -30286,7 +30286,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 {activeDropdown?.nodeId === node.id && activeDropdown.type === 'analyze-model' && (
                                                                     <div
                                                                         className={`absolute top-full left-0 mt-1 w-64 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                                            ? 'bg-[#18181b] border-zinc-700'
+                                                                            ? 'bg-[#16162a] border-zinc-700'
                                                                             : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                             }`}
                                                                         onMouseDown={(e) => e.stopPropagation()}
@@ -31356,7 +31356,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'storyboard-download' && activeDropdown.anchor && createPortal(
                                                         <div
                                                             className={`fixed mt-1 w-32 rounded-lg shadow-xl py-1 z-[9999] border ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             style={{
@@ -31434,7 +31434,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'batch-queue' && activeDropdown.anchor && createPortal(
                                                         <div
                                                             className={`fixed mt-1 w-64 rounded-lg shadow-xl py-2 z-[9999] border ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             style={{
@@ -32663,7 +32663,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                             {activeDropdown?.nodeId === node.id && activeDropdown.type === 'shot-model' && activeDropdown.shotId === shot.id && (
                                                                                 <div
                                                                                     className={`absolute top-full left-0 mt-1 w-64 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                                                        ? 'bg-[#18181b] border-zinc-700'
+                                                                                        ? 'bg-[#16162a] border-zinc-700'
                                                                                         : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                                         }`}
                                                                                     onMouseDown={(e) => e.stopPropagation()}
@@ -34086,7 +34086,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                             </span>
                                                             <div
                                                                 className={`relative w-8 h-8 rounded-full border-2 thumb-stack-item cursor-pointer overflow-hidden ${theme === 'dark'
-                                                                    ? 'border-[#18181b] bg-zinc-800'
+                                                                    ? 'border-[#16162a] bg-zinc-800'
                                                                     : 'border-white bg-zinc-200'
                                                                     }`}
                                                                 style={{ zIndex: 10 - idx }}
@@ -34574,7 +34574,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {activeDropdown?.nodeId === node.id && activeDropdown.type === 'model' && (
                                                 <div
                                                     className={`absolute bottom-full left-0 mb-1 w-96 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                        ? 'bg-[#18181b] border-zinc-700'
+                                                        ? 'bg-[#16162a] border-zinc-700'
                                                         : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                         }`}
                                                     onMouseDown={(e) => e.stopPropagation()}
@@ -34665,7 +34665,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'mjVersion' && (
                                                         <div
                                                             className={`absolute bottom-full left-0 mb-1 w-32 rounded-lg shadow-xl p-1 z-[60] border max-h-64 overflow-y-auto custom-scrollbar ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             onMouseDown={(e) => e.stopPropagation()}
@@ -34717,7 +34717,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 {activeDropdown?.nodeId === node.id && activeDropdown.type === 'ratio' && (
                                                     <div
                                                         className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-20 rounded-lg shadow-xl p-1 z-[60] border ${theme === 'dark'
-                                                            ? 'bg-[#18181b] border-zinc-700'
+                                                            ? 'bg-[#16162a] border-zinc-700'
                                                             : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                             }`}
                                                         onMouseDown={e => e.stopPropagation()}
@@ -34784,7 +34784,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         {activeDropdown?.nodeId === node.id && activeDropdown.type === 'vres' && (
                                                             <div
                                                                 className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-24 rounded-lg shadow-xl p-1 z-[60] border ${theme === 'dark'
-                                                                    ? 'bg-[#18181b] border-zinc-700'
+                                                                    ? 'bg-[#16162a] border-zinc-700'
                                                                     : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                     }`}
                                                                 onMouseDown={e => e.stopPropagation()}
@@ -34870,7 +34870,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         return (
                                                             <div
                                                                 className={`absolute bottom-full right-0 mb-1 w-24 rounded-lg shadow-xl p-1 z-[60] border ${theme === 'dark'
-                                                                    ? 'bg-[#18181b] border-zinc-700'
+                                                                    ? 'bg-[#16162a] border-zinc-700'
                                                                     : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                     }`}
                                                                 onMouseDown={e => e.stopPropagation()}
@@ -34927,7 +34927,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                 {activeDropdown?.nodeId === node.id && activeDropdown.type === 'duration' && (
                                                                     <div
                                                                         className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-20 rounded-lg shadow-xl p-1 z-[60] border ${theme === 'dark'
-                                                                            ? 'bg-[#18181b] border-zinc-700'
+                                                                            ? 'bg-[#16162a] border-zinc-700'
                                                                             : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                             }`}
                                                                         onMouseDown={e => e.stopPropagation()}
@@ -35023,7 +35023,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {activeDropdown?.nodeId === node.id && activeDropdown.type === 'imgConcurrency' && (
                                                         <div
                                                             className={`absolute bottom-full right-0 mb-1 w-16 rounded-lg shadow-xl p-1 z-[60] border ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                             onMouseDown={e => e.stopPropagation()}
@@ -35084,11 +35084,11 @@ ${inputText.substring(0, 15000)} ... (截断)
             selectedNodeId
         ].filter(Boolean))
     ), [nodes, selectedNodeId, selectedNodeIds]);
-    const topBarButtonBase = 'flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors';
+    const topBarButtonBase = 'flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all duration-150';
     const topBarButtonClass = (state = 'default') => {
         if (state === 'disabled') {
             return `${topBarButtonBase} ${theme === 'dark'
-                ? 'border-zinc-800 bg-zinc-950 text-zinc-600 cursor-not-allowed'
+                ? 'border-[#1e1e2e] bg-[#12121a] text-zinc-600 cursor-not-allowed'
                 : theme === 'solarized'
                     ? 'border-[#d7cfb2] bg-[#eee8d5] text-[#586e75]/50 cursor-not-allowed'
                     : 'border-zinc-200 bg-zinc-50 text-zinc-400 cursor-not-allowed'
@@ -35096,28 +35096,28 @@ ${inputText.substring(0, 15000)} ... (截断)
         }
         if (state === 'primary') {
             return `${topBarButtonBase} ${theme === 'dark'
-                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25'
+                ? 'border-purple-500/40 bg-purple-500/15 text-purple-200 hover:bg-purple-500/25'
                 : theme === 'solarized'
-                    ? 'border-emerald-700/40 bg-emerald-700/15 text-emerald-800 hover:bg-emerald-700/25'
-                    : 'border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    ? 'border-purple-700/40 bg-purple-700/15 text-purple-800 hover:bg-purple-700/25'
+                    : 'border-purple-500/40 bg-purple-50 text-purple-700 hover:bg-purple-100'
                 }`;
         }
         if (state === 'active') {
             return `${topBarButtonBase} ${theme === 'dark'
-                ? 'border-sky-500/40 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25'
+                ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25'
                 : theme === 'solarized'
                     ? 'border-[#586e75]/40 bg-[#586e75]/15 text-[#475b62] hover:bg-[#586e75]/25'
-                    : 'border-sky-500/30 bg-sky-50 text-sky-700 hover:bg-sky-100'
+                    : 'border-indigo-500/30 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
                 }`;
         }
         return `${topBarButtonBase} ${theme === 'dark'
-            ? 'border-zinc-800 bg-zinc-950/70 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900'
+            ? 'border-[#2a2a3e] bg-[#14141f]/70 text-zinc-300 hover:border-[#3a3a55] hover:bg-[#1a1a2a]'
             : theme === 'solarized'
                 ? 'border-[#d7cfb2] bg-[#eee8d5] text-[#586e75] hover:bg-[#e6dec8]'
                 : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
             }`;
     };
-    const sideToolButtonBase = 'flex h-9 w-9 items-center justify-center rounded-md border transition-colors';
+    const sideToolButtonBase = 'flex h-9 w-9 items-center justify-center rounded-lg border transition-all duration-150';
 
     return (
         <>
@@ -35130,7 +35130,7 @@ ${inputText.substring(0, 15000)} ... (截断)
             />
             <div
                 className={`dream-ui-refresh w-full h-screen font-sans overflow-hidden select-none flex flex-col transition-colors duration-300 ${theme === 'dark'
-                    ? 'bg-[#09090b] text-white'
+                    ? 'bg-[#0c0c14] text-white'
                     : theme === 'solarized'
                         ? 'bg-[#fdf6e3] text-[#586e75]'
                         : 'bg-zinc-100 text-zinc-900'
@@ -35155,21 +35155,21 @@ ${inputText.substring(0, 15000)} ... (截断)
                 )}
                 {/* Top Bar */}
                 <div
-                    className={`h-11 flex items-center justify-between px-3 z-50 shrink-0 border-b transition-colors duration-300 ${theme === 'dark'
-                        ? 'bg-[#0b0b0d] border-zinc-800'
+                    className={`h-12 flex items-center justify-between px-4 z-50 shrink-0 border-b transition-colors duration-300 ${theme === 'dark'
+                        ? 'bg-[#0e0e18]/95 border-[#2a2a3e] backdrop-blur-md'
                     : theme === 'solarized'
                         ? 'bg-[#eee8d5] border-[#d7cfb2]'
                             : 'bg-white border-zinc-200'
                         }`}
                 >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <div className={`w-7 h-7 rounded-md border flex items-center justify-center ${theme === 'dark'
-                            ? 'border-zinc-800 bg-zinc-950 text-zinc-300'
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${theme === 'dark'
+                            ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
                             : theme === 'solarized'
                                 ? 'border-[#d7cfb2] bg-[#fdf6e3] text-[#586e75]'
                                 : 'border-zinc-200 bg-zinc-50 text-zinc-700'
                             }`}>
-                            <Layers size={15} />
+                            <Layers size={16} />
                         </div>
                         <span
                             className={`font-semibold text-sm ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'
@@ -35353,8 +35353,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                     <>
                         <div className="fixed inset-0 z-[80]" onClick={() => setAppearanceDropdownOpen(false)} />
                         <div
-                            className={`fixed z-[81] w-80 rounded-lg shadow-2xl border backdrop-blur-md ${theme === 'dark'
-                                ? 'bg-[#18181b]/95 border-zinc-700'
+                            className={`fixed z-[81] w-80 rounded-xl shadow-2xl border backdrop-blur-md ${theme === 'dark'
+                                ? 'bg-[#16162a]/95 border-[#2a2a3e]'
                                 : theme === 'solarized'
                                     ? 'bg-[#eee8d5]/95 border-[#d7cfb2]'
                                     : 'bg-white/95 border-zinc-200'
@@ -35375,7 +35375,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         <button
                                             onClick={() => setCanvasBackground(null)}
                                             className={`aspect-video rounded border-2 overflow-hidden transition-all ${!canvasBackground
-                                                ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                ? 'border-purple-500 ring-1 ring-purple-500/30'
                                                 : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
                                             }`}
                                         >
@@ -35388,7 +35388,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 key={bg.id}
                                                 onClick={() => setCanvasBackground(bg.src)}
                                                 className={`relative aspect-video rounded border-2 overflow-hidden transition-all ${canvasBackground === bg.src
-                                                    ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                    ? 'border-purple-500 ring-1 ring-purple-500/30'
                                                     : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
                                                 }`}
                                                 title={bg.name}
@@ -35415,7 +35415,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 type="range" min="0.05" max="0.5" step="0.05"
                                                 value={canvasBgOpacity}
                                                 onChange={(e) => setCanvasBgOpacity(parseFloat(e.target.value))}
-                                                className="flex-1 h-1 accent-sky-500"
+                                                className="flex-1 h-1 accent-purple-500"
                                             />
                                             <span className={`text-[9px] font-mono w-7 text-right ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
                                                 {Math.round(canvasBgOpacity * 100)}%
@@ -35435,7 +35435,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         <button
                                             onClick={() => setNodeBackground(null)}
                                             className={`aspect-video rounded border-2 overflow-hidden transition-all ${!nodeBackground
-                                                ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                ? 'border-purple-500 ring-1 ring-purple-500/30'
                                                 : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
                                             }`}
                                         >
@@ -35448,7 +35448,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 key={bg.id}
                                                 onClick={() => setNodeBackground(bg.src)}
                                                 className={`relative aspect-video rounded border-2 overflow-hidden transition-all ${nodeBackground === bg.src
-                                                    ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                    ? 'border-purple-500 ring-1 ring-purple-500/30'
                                                     : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
                                                 }`}
                                                 title={bg.name}
@@ -35475,7 +35475,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 type="range" min="0.05" max="0.4" step="0.05"
                                                 value={nodeBackgroundOpacity}
                                                 onChange={(e) => setNodeBackgroundOpacity(parseFloat(e.target.value))}
-                                                className="flex-1 h-1 accent-sky-500"
+                                                className="flex-1 h-1 accent-purple-500"
                                             />
                                             <span className={`text-[9px] font-mono w-7 text-right ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
                                                 {Math.round(nodeBackgroundOpacity * 100)}%
@@ -35497,14 +35497,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 key={preset.id}
                                                 onClick={() => setCustomNodeColor(preset.color)}
                                                 className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] transition-all ${(customNodeColor === preset.color || (!customNodeColor && !preset.color))
-                                                    ? 'border-sky-500 ring-1 ring-sky-500/30'
+                                                    ? 'border-purple-500 ring-1 ring-purple-500/30'
                                                     : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
                                                 } ${theme === 'dark' ? 'bg-zinc-900 text-zinc-300' : 'bg-white text-zinc-700'}`}
                                                 title={preset.label}
                                             >
                                                 <span
                                                     className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
-                                                    style={{ background: preset.color || (theme === 'dark' ? '#52525b' : '#a1a1aa') }}
+                                                    style={{ background: preset.color || (theme === 'dark' ? '#3a3a5c' : '#a1a1aa') }}
                                                 />
                                                 {preset.label}
                                             </button>
@@ -35514,7 +35514,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         <label className={`text-[9px] ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>{t('自定义')}:</label>
                                         <input
                                             type="color"
-                                            value={customNodeColor || '#38bdf8'}
+                                            value={customNodeColor || '#7c5bf5'}
                                             onChange={(e) => setCustomNodeColor(e.target.value)}
                                             className="w-5 h-5 rounded cursor-pointer border-0 p-0"
                                         />
@@ -35533,15 +35533,15 @@ ${inputText.substring(0, 15000)} ... (截断)
                 <input ref={perNodeBgInputRef} type="file" accept="image/*" className="hidden" onChange={handlePerNodeBgUpload} />
 
                 <div className={`flex-1 relative overflow-hidden flex transition-colors duration-300 ${theme === 'dark'
-                    ? 'bg-[#09090b]'
+                    ? 'bg-[#0c0c14]'
                     : theme === 'solarized'
                         ? 'bg-[#fdf6e3]'
                         : 'bg-zinc-100'
                     }`}>
                     {/* Sidebar */}
                     <div
-                        className={`w-12 border-r flex flex-col items-center py-2.5 gap-2 z-40 shrink-0 transition-colors duration-300 ${theme === 'dark'
-                            ? 'bg-[#0b0b0d] border-zinc-800'
+                        className={`w-14 border-r flex flex-col items-center py-3 gap-1.5 z-40 shrink-0 transition-colors duration-300 ${theme === 'dark'
+                            ? 'bg-[#0e0e18]/95 border-[#2a2a3e] backdrop-blur-md'
                             : theme === 'solarized'
                                 ? 'bg-[#eee8d5] border-[#d7cfb2]'
                                 : 'bg-white border-zinc-200'
@@ -35550,7 +35550,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={autoArrangeNodes}
                             className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
                                 : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('自动整理节点（对齐、排列、去除堆叠）')}
@@ -35567,12 +35567,12 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 }}
                                 className={`${sideToolButtonBase} ${activeTool === tool.id
                                     ? theme === 'dark'
-                                        ? 'border-zinc-700 bg-zinc-900 text-white'
+                                        ? 'border-purple-500/30 bg-purple-500/15 text-purple-200'
                                         : theme === 'solarized'
                                             ? 'border-[#586e75]/40 bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
                                             : 'border-zinc-300 bg-zinc-100 text-zinc-900'
                                     : theme === 'dark'
-                                        ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                        ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
                                         : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                     }`}
                             >
@@ -35586,10 +35586,10 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 ? theme === 'solarized'
                                     ? 'border-[#586e75]/40 bg-[#616161] text-[#fdf6e3] hover:bg-[#555555]'
                                     : theme === 'dark'
-                                        ? 'border-sky-500/40 bg-sky-500/15 text-sky-200'
+                                        ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200'
                                         : 'border-sky-500/30 bg-sky-50 text-sky-700'
                                 : theme === 'dark'
-                                    ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                    ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
                                     : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('AI 对话')}
@@ -35600,7 +35600,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={handleSaveProject}
                             className={`${sideToolButtonBase} ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
                                 : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('保存项目')}
@@ -35610,7 +35610,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={handleLoadProject}
                             className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
                                 : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('加载项目')}
@@ -35620,7 +35620,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <button
                             onClick={handleImportWorkflow}
                             className={`${sideToolButtonBase} mb-1 ${theme === 'dark'
-                                ? 'border-transparent text-zinc-500 hover:border-zinc-800 hover:text-zinc-300 hover:bg-zinc-950'
+                                ? 'border-transparent text-zinc-500 hover:border-[#2a2a3e] hover:text-purple-300 hover:bg-purple-500/10'
                                 : 'border-transparent text-zinc-500 hover:border-zinc-200 hover:text-zinc-800 hover:bg-zinc-50'
                                 }`}
                             title={t('导入工作流')}
@@ -35633,7 +35633,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     {historyOpen && (
                         <div
                             className={`w-72 z-30 flex flex-col animate-in slide-in-from-left border-r transition-colors duration-300 ${theme === 'dark'
-                                ? 'bg-[#121214] border-zinc-800'
+                                ? 'bg-[#12121c] border-[#2a2a3e]'
                                 : theme === 'solarized'
                                     ? 'bg-[#fdf6e3] border-[#d7cfb2]'
                                     : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5]' : 'bg-zinc-50 border-zinc-200'
@@ -35788,7 +35788,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         {activeDropdown?.type === 'batch-download' && historySelection.size === 0 && (
                                             <div
                                                 className={`absolute right-0 top-full mt-1 w-40 rounded-lg shadow-xl py-1 z-50 border ${theme === 'dark'
-                                                    ? 'bg-[#18181b] border-zinc-700'
+                                                    ? 'bg-[#16162a] border-zinc-700'
                                                     : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                     }`}
                                                 onMouseLeave={() => setActiveDropdown(null)}
@@ -35888,7 +35888,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 {(historyQueuePanelOpen || historyCachePanelOpen) && (
                                     <div
                                         className={`sticky top-0 z-20 space-y-3 pb-3 ${theme === 'dark'
-                                            ? 'bg-[#121214]'
+                                            ? 'bg-[#12121c]'
                                             : theme === 'solarized'
                                                 ? 'bg-[#fdf6e3]'
                                                 : 'bg-zinc-50'
@@ -36443,7 +36443,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     {charactersOpen && (
                         <div
                             className={`w-72 z-30 flex flex-col animate-in slide-in-from-left border-r transition-colors duration-300 ${theme === 'dark'
-                                ? 'bg-[#121214] border-zinc-800'
+                                ? 'bg-[#12121c] border-zinc-800'
                                 : theme === 'solarized'
                                     ? 'bg-[#eee8d5] border-[#d7cfb2]'
                                     : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5]' : 'bg-zinc-50 border-zinc-200'
@@ -36583,7 +36583,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center" onClick={() => setCreateCharacterOpen(false)}>
                             <div
                                 className={`w-[500px] max-h-[90vh] overflow-y-auto rounded-lg shadow-2xl flex flex-col ${theme === 'dark'
-                                    ? 'bg-[#121214] border-zinc-800'
+                                    ? 'bg-[#12121c] border-zinc-800'
                                     : theme === 'solarized'
                                         ? 'bg-[#eee8d5] border-[#d7cfb2]'
                                         : 'bg-white border-zinc-200'
@@ -36859,7 +36859,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             onMouseDown={handleMouseDown} onClick={handleBackgroundClick} onDoubleClick={handleDoubleClick} onContextMenu={handleCanvasContextMenu}
                             onDrop={handleCanvasDrop} onDragOver={handleCanvasDragOver} onDragEnter={handleCanvasDragEnter} onDragLeave={handleCanvasDragLeave}
                             style={{
-                                backgroundColor: theme === 'dark' ? '#09090b' : (theme === 'solarized' ? '#fdf6e3' : '#f4f4f5'),
+                                backgroundColor: theme === 'dark' ? '#0c0c14' : (theme === 'solarized' ? '#fdf6e3' : '#f4f4f5'),
                                 backgroundImage: (() => {
                                     const mergeThreshold = 0.6;
                                     const mergeScale = view.zoom < mergeThreshold ? 2 : 1;
@@ -36925,7 +36925,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             {isCanvasFileDragActive && (
                                 <div className="absolute inset-0 z-[60] pointer-events-none flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
                                     <div className={`rounded-xl border px-4 py-3 shadow-2xl ${theme === 'dark'
-                                        ? 'bg-[#18181b] border-zinc-700 text-zinc-100'
+                                        ? 'bg-[#16162a] border-zinc-700 text-zinc-100'
                                         : theme === 'solarized'
                                             ? 'bg-[#eee8d5] border-[#d7cfb2] text-zinc-800'
                                             : 'bg-white border-zinc-200 text-zinc-800'
@@ -36958,7 +36958,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         {/* Chat Sidebar Panel */}
                         <div
                             className={`fixed right-0 top-12 bottom-0 border-l shadow-2xl flex flex-col z-50 transition-transform duration-300 ease-in-out select-text ${theme === 'dark'
-                                ? 'bg-[#121214] border-zinc-800'
+                                ? 'bg-[#12121c] border-zinc-800'
                                 : theme === 'solarized'
                                     ? 'bg-[#eee8d5] border-[#d7cfb2]'
                                     : 'bg-white border-zinc-200'
@@ -37009,7 +37009,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         {chatModelDropdownOpen && (
                                             <div
                                                 className={`absolute top-full left-0 mt-1 w-72 rounded-lg shadow-xl p-1 z-[60] border flex ${theme === 'dark'
-                                                    ? 'bg-[#18181b] border-zinc-700'
+                                                    ? 'bg-[#16162a] border-zinc-700'
                                                     : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'}`}
                                                 onMouseLeave={() => setChatHoveredProvider(null)}
                                             >
@@ -37088,7 +37088,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {chatSessionDropdownOpen && (
                                                 <div
                                                     className={`absolute right-0 top-full mt-1 w-48 rounded-lg shadow-xl py-1 z-50 border ${theme === 'dark'
-                                                        ? 'bg-[#18181b] border-zinc-700'
+                                                        ? 'bg-[#16162a] border-zinc-700'
                                                         : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                         }`}
                                                     onMouseLeave={() => setChatSessionDropdownOpen(false)}
@@ -37266,7 +37266,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             </div>
                             <div
                                 className={`p-3 border-t ${theme === 'dark'
-                                    ? 'border-zinc-800 bg-[#121214]'
+                                    ? 'border-zinc-800 bg-[#12121c]'
                                     : theme === 'solarized'
                                         ? 'border-[#d7cfb2] bg-[#eee8d5]'
                                         : 'border-zinc-200 bg-zinc-50'
@@ -37407,7 +37407,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {contextMenu.visible && (
                             <div
-                                className={`fixed z-50 w-40 rounded-lg shadow-xl border ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
+                                className={`fixed z-50 w-40 rounded-lg shadow-xl border ${theme === 'dark' ? 'bg-[#16162a] border-zinc-800' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                     }`}
                                 style={{ left: contextMenu.x, top: contextMenu.y, transform: 'translate(-50%, -50%)' }}
                                 onMouseLeave={() => {
@@ -37494,7 +37494,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                     {contextMenuExpanded === item.type && (
                                                         <div
                                                             className={`absolute left-full top-0 ml-1 w-40 rounded-lg shadow-xl p-1 border ${theme === 'dark'
-                                                                ? 'bg-[#18181b] border-zinc-700'
+                                                                ? 'bg-[#16162a] border-zinc-700'
                                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                                 }`}
                                                         >
@@ -37532,7 +37532,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {historyContextMenu.visible && (
                             <div
-                                className={`fixed z-[100] w-max rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
+                                className={`fixed z-[100] w-max rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#16162a] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                     }`}
                                 style={{ left: historyContextMenu.x, top: historyContextMenu.y }}
                             >
@@ -37582,7 +37582,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     {historySendMenuOpen && (
                                         <div
                                             className={`absolute left-full top-0 ml-1 w-max rounded-lg shadow-2xl py-1 border ${theme === 'dark'
-                                                ? 'bg-[#18181b] border-zinc-700'
+                                                ? 'bg-[#16162a] border-zinc-700'
                                                 : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                                 }`}
                                             onMouseEnter={openHistorySendMenu}
@@ -37675,7 +37675,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {selectionContextMenu.visible && (
                             <div
-                                className={`fixed z-[120] w-52 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
+                                className={`fixed z-[120] w-52 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#16162a] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                     }`}
                                 style={{ left: selectionContextMenu.x, top: selectionContextMenu.y }}
                                 onMouseLeave={() => setSelectionContextMenu({ visible: false, x: 0, y: 0 })}
@@ -37738,7 +37738,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {frameContextMenu.visible && (
                             <div
-                                className={`fixed z-[110] w-48 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
+                                className={`fixed z-[110] w-48 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#16162a] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                     }`}
                                 style={{ left: frameContextMenu.x, top: frameContextMenu.y }}
                             >
@@ -37789,7 +37789,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {previewContextMenu.visible && (
                             <div
-                                className={`fixed z-[110] w-48 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
+                                className={`fixed z-[110] w-48 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#16162a] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                     }`}
                                 style={{ left: previewContextMenu.x, top: previewContextMenu.y }}
                                 onMouseLeave={closePreviewContextMenu}
@@ -37909,7 +37909,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         {inputImageContextMenu.visible && (
                             <div
-                                className={`fixed z-[110] w-48 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
+                                className={`fixed z-[110] w-48 rounded-lg shadow-2xl py-1 animate-in fade-in duration-100 border ${theme === 'dark' ? 'bg-[#16162a] border-zinc-700' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2]' : 'bg-white border-zinc-200'
                                     }`}
                                 style={{ left: inputImageContextMenu.x, top: inputImageContextMenu.y }}
                                 onMouseLeave={closeInputImageContextMenu}
@@ -38136,17 +38136,17 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                         <Modal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} title={t('模型接口配置')} theme={theme}>
                             <div className="px-4 pt-3">
-                                <div className={`inline-flex rounded-md border ${theme === 'dark'
-                                    ? 'border-zinc-800 bg-[#18181b]'
+                                <div className={`inline-flex rounded-lg border ${theme === 'dark'
+                                    ? 'border-[#2a2a3e] bg-[#16162a]'
                                     : theme === 'solarized'
                                         ? 'border-[#d7cfb2] bg-[#eee8d5]'
                                         : 'border-zinc-200 bg-zinc-50'
                                     } p-1`}>
                                     <button
                                         onClick={() => setSettingsTab('providers')}
-                                        className={`px-3 py-1 text-xs rounded ${settingsTab === 'providers'
+                                        className={`px-3 py-1 text-xs rounded-md transition-colors ${settingsTab === 'providers'
                                             ? theme === 'dark'
-                                                ? 'bg-zinc-800 text-zinc-100'
+                                                ? 'bg-purple-500/20 text-purple-200'
                                                 : theme === 'solarized'
                                                     ? 'bg-[#fdf6e3] text-zinc-800'
                                                     : 'bg-white text-zinc-800'
@@ -38161,9 +38161,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     </button>
                                     <button
                                         onClick={() => setSettingsTab('library')}
-                                        className={`px-3 py-1 text-xs rounded ${settingsTab === 'library'
+                                        className={`px-3 py-1 text-xs rounded-md transition-colors ${settingsTab === 'library'
                                             ? theme === 'dark'
-                                                ? 'bg-zinc-800 text-zinc-100'
+                                                ? 'bg-purple-500/20 text-purple-200'
                                                 : theme === 'solarized'
                                                     ? 'bg-[#fdf6e3] text-zinc-800'
                                                     : 'bg-white text-zinc-800'
@@ -38181,7 +38181,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             {settingsTab === 'providers' && (
                                 <>
                                     <details className={`mx-4 mt-3 rounded-md border ${theme === 'dark'
-                                        ? 'border-zinc-800 bg-[#18181b]'
+                                        ? 'border-zinc-800 bg-[#16162a]'
                                         : theme === 'solarized'
                                             ? 'border-[#d7cfb2] bg-[#eee8d5]'
                                             : 'border-zinc-200 bg-white'
@@ -38389,7 +38389,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     </details>
 
                                     <div className={`mx-4 mt-3 rounded-md border ${theme === 'dark'
-                                        ? 'border-zinc-800 bg-[#18181b]'
+                                        ? 'border-zinc-800 bg-[#16162a]'
                                         : theme === 'solarized'
                                             ? 'border-[#d7cfb2] bg-[#eee8d5]'
                                             : 'border-zinc-200 bg-white'
@@ -38508,7 +38508,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     </div>
 
                                     <div className={`mx-4 mt-3 rounded-md border ${theme === 'dark'
-                                        ? 'border-zinc-800 bg-[#18181b]'
+                                        ? 'border-zinc-800 bg-[#16162a]'
                                         : theme === 'solarized'
                                             ? 'border-[#d7cfb2] bg-[#eee8d5]'
                                             : 'border-zinc-200 bg-white'
@@ -38558,7 +38558,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     </div>
 
                                     <div className={`mx-4 mt-3 rounded-md border ${theme === 'dark'
-                                        ? 'border-zinc-800 bg-[#18181b]'
+                                        ? 'border-zinc-800 bg-[#16162a]'
                                         : theme === 'solarized'
                                             ? 'border-[#d7cfb2] bg-[#eee8d5]'
                                             : 'border-zinc-200 bg-white'
@@ -38599,7 +38599,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         {/* V3.4.7: 按 Provider 分组显示模型 */}
                                         {Object.entries(groupedApiConfigs).map(([providerKey, group]) => (
                                             <div key={providerKey} className={`group rounded-lg border ${theme === 'dark'
-                                                ? 'bg-[#18181b] border-zinc-800'
+                                                ? 'bg-[#16162a] border-zinc-800'
                                                 : theme === 'solarized'
                                                     ? 'bg-[#fdf6e3] border-[#d7cfb2]'
                                                     : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5]' : 'bg-zinc-50 border-zinc-200'
@@ -39204,7 +39204,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             };
                                             return (
                                                 <div key={entry.id} className={`rounded-lg border p-3 space-y-3 ${theme === 'dark'
-                                                    ? 'bg-[#18181b] border-zinc-800'
+                                                    ? 'bg-[#16162a] border-zinc-800'
                                                     : theme === 'solarized'
                                                         ? 'bg-[#fdf6e3] border-[#d7cfb2]'
                                                         : 'bg-white border-zinc-200'
@@ -40962,7 +40962,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     }}
                                 />
                                 <div className={`relative w-[90vw] h-[85vh] max-w-7xl rounded-lg shadow-2xl flex flex-col ${theme === 'dark'
-                                    ? 'bg-[#121214] border border-zinc-800'
+                                    ? 'bg-[#12121c] border border-zinc-800'
                                     : theme === 'solarized'
                                         ? 'bg-[#eee8d5] border border-[#d7cfb2]'
                                         : 'bg-white border border-zinc-200'
