@@ -5,6 +5,7 @@ const root = process.cwd();
 const targets = [
   'src',
   '.claude/agents',
+  '.github',
   'README.md',
   'CLAUDE.md',
   'index.html',
