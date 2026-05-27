@@ -13,3 +13,5 @@ thumbs.db
 localserver/__pycache__/
 localserver/workflows/*/
 Dream-V*.html
+dev-server*.log
+.claude/settings*.json
