@@ -192,11 +192,11 @@
 /* Dream visual refresh */
 .dream-ui-refresh {
     --dream-bg: #0c0c14;
-    --dream-surface: rgba(18, 18, 30, 0.95);
-    --dream-surface-strong: rgba(22, 22, 36, 0.98);
-    --dream-surface-soft: rgba(255, 255, 255, 0.04);
-    --dream-border: rgba(130, 120, 200, 0.14);
-    --dream-border-strong: rgba(130, 120, 200, 0.28);
+    --dream-surface: #252525;
+    --dream-surface-strong: #2a2a2a;
+    --dream-surface-soft: #1e1e1e;
+    --dream-border: rgba(255, 255, 255, 0.075);
+    --dream-border-strong: rgba(255, 255, 255, 0.14);
     --dream-text: #e8eaef;
     --dream-muted: #8b8fa6;
     --dream-accent: #7c5bf5;
@@ -258,7 +258,7 @@ html.theme-solarized .dream-ui-refresh #canvas-bg {
 
 .dream-ui-refresh .node-wrapper {
     border-radius: 12px !important;
-    background: rgba(38, 38, 38, 0.95) !important;
+    background: var(--dream-surface) !important;
     border: 1px solid var(--dream-border) !important;
     box-shadow: var(--dream-shadow-soft) !important;
     overflow: visible;
@@ -380,15 +380,23 @@ html.theme-solarized .dream-ui-refresh select {
 .dream-ui-refresh .input-point {
     background: var(--dream-surface-strong) !important;
     border-color: var(--dream-border-strong) !important;
-    box-shadow: 0 0 0 3px rgba(124, 91, 245, 0.06), 0 8px 18px rgba(0, 0, 0, 0.26) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
 }
 
 .dream-ui-refresh .connector:hover,
-.dream-ui-refresh .connector.active,
+.dream-ui-refresh .connector.active {
+    background: var(--dream-accent) !important;
+    border-color: rgba(167, 139, 250, 0.8) !important;
+    box-shadow: 0 0 0 4px rgba(124, 91, 245, 0.2), 0 4px 12px rgba(124, 91, 245, 0.3) !important;
+    color: #fff !important;
+}
+
 .dream-ui-refresh .input-point.active,
 .dream-ui-refresh .input-point.connected {
     background: var(--dream-accent) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
+    border-color: rgba(167, 139, 250, 0.8) !important;
+    box-shadow: 0 0 0 3px rgba(124, 91, 245, 0.15) !important;
 }
 
 .dream-ui-refresh .connection-group path:not(.connection-hit-area) {
@@ -421,4 +429,219 @@ html.theme-solarized .dream-ui-refresh select {
 .dream-ui-refresh .lightbox-overlay {
     background: rgba(5, 7, 8, 0.92);
     backdrop-filter: blur(18px);
+}
+
+.dream-ui-refresh .node-wrapper {
+    border-radius: 8px !important;
+    background: #252525 !important;
+    border-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+.dream-ui-refresh .node-wrapper.node-selected {
+    border-color: rgba(210, 210, 210, 0.72) !important;
+    box-shadow: 0 0 0 1px rgba(210, 210, 210, 0.28), 0 18px 38px rgba(0, 0, 0, 0.34) !important;
+}
+
+.dream-shot-node-empty {
+    position: relative;
+    display: flex;
+    min-height: 100%;
+    width: 100%;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    background: #252525;
+    color: #f2f2f2;
+}
+
+html.theme-light .dream-shot-node-empty {
+    background: #ffffff;
+    color: #27272a;
+}
+
+html.theme-solarized .dream-shot-node-empty {
+    background: #fdf6e3;
+    color: #2c2c3a;
+}
+
+.dream-ui-refresh .node-wrapper > .absolute:first-child span {
+    color: rgba(255, 255, 255, 0.58);
+    font-weight: 600;
+}
+
+html.theme-light .dream-ui-refresh .node-wrapper > .absolute:first-child span,
+html.theme-solarized .dream-ui-refresh .node-wrapper > .absolute:first-child span {
+    color: rgba(39, 39, 42, 0.62);
+}
+
+.dream-shot-node-icon {
+    align-self: center;
+    color: rgba(255, 255, 255, 0.2);
+    margin-bottom: 22px;
+}
+
+html.theme-light .dream-shot-node-icon,
+html.theme-solarized .dream-shot-node-icon {
+    color: rgba(39, 39, 42, 0.14);
+}
+
+.dream-shot-node-actions {
+    margin-left: clamp(18px, 9%, 34px);
+    margin-right: clamp(18px, 9%, 34px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.dream-shot-node-actions-compact {
+    align-self: stretch;
+    margin-left: clamp(16px, 8%, 28px);
+    margin-right: clamp(16px, 8%, 28px);
+    gap: 8px;
+}
+
+.dream-shot-node-action-label {
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 11px;
+}
+
+html.theme-light .dream-shot-node-action-label,
+html.theme-solarized .dream-shot-node-action-label {
+    color: rgba(39, 39, 42, 0.52);
+}
+
+.dream-shot-node-action {
+    display: inline-flex;
+    width: max-content;
+    max-width: 100%;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.88);
+    padding: 0;
+    text-align: left;
+    font-weight: 600;
+}
+
+html.theme-light .dream-shot-node-action,
+html.theme-solarized .dream-shot-node-action {
+    color: rgba(39, 39, 42, 0.86);
+}
+
+.dream-shot-node-action svg {
+    flex: 0 0 auto;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+html.theme-light .dream-shot-node-action svg,
+html.theme-solarized .dream-shot-node-action svg {
+    color: rgba(39, 39, 42, 0.72);
+}
+
+.dream-shot-node-action span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dream-shot-node-action:hover span {
+    color: #ffffff;
+}
+
+html.theme-light .dream-shot-node-action:hover span,
+html.theme-solarized .dream-shot-node-action:hover span {
+    color: #111827;
+}
+
+.dream-shot-node-text {
+    padding-top: 28px;
+}
+
+.dream-shot-node-text .dream-shot-node-icon {
+    margin-bottom: 16px;
+}
+
+.dream-shot-node-editor {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    height: 34%;
+    min-height: 70px;
+}
+
+.dream-shot-node-generator-hero {
+    display: flex;
+    min-height: 145px;
+    flex-direction: column;
+    justify-content: center;
+    border-radius: 6px;
+    background: #252525;
+}
+
+html.theme-light .dream-shot-node-generator-hero {
+    background: #ffffff;
+}
+
+html.theme-solarized .dream-shot-node-generator-hero {
+    background: #fdf6e3;
+}
+
+.dream-shot-node-generator-hero .dream-shot-node-icon {
+    margin-bottom: 18px;
+}
+
+.dream-shot-node-video-empty {
+    min-height: 330px;
+    justify-content: center;
+}
+
+.dream-shot-node-video-drop {
+    display: flex;
+    min-height: 188px;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    color: rgba(255, 255, 255, 0.48);
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+html.theme-light .dream-shot-node-video-drop,
+html.theme-solarized .dream-shot-node-video-drop {
+    color: rgba(39, 39, 42, 0.48);
+}
+
+.dream-shot-node-video-drop.is-drag-over,
+.dream-shot-node-video-drop:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+html.theme-light .dream-shot-node-video-drop.is-drag-over,
+html.theme-light .dream-shot-node-video-drop:hover,
+html.theme-solarized .dream-shot-node-video-drop.is-drag-over,
+html.theme-solarized .dream-shot-node-video-drop:hover {
+    border-color: rgba(39, 39, 42, 0.16);
+    background: rgba(39, 39, 42, 0.035);
+}
+
+.dream-shot-node-video-drop span {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+html.theme-light .dream-shot-node-video-drop span,
+html.theme-solarized .dream-shot-node-video-drop span {
+    color: rgba(39, 39, 42, 0.62);
+}
+
+.dream-ui-refresh audio {
+    height: 34px;
+    color-scheme: dark;
 }

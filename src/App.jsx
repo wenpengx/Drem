@@ -61,7 +61,8 @@ import {
     Monitor,
     Zap, // V3.5.24
     Ban, Clock, Edit3, Pencil, // V3.7.24: API management buttons + V3.7.25: Edit icons
-    Paintbrush, Palette, Upload, Trash, RotateCcwIcon // V3.8: Appearance settings
+    Paintbrush, Palette, Upload, Trash, RotateCcwIcon, // V3.8: Appearance settings
+    Film, Type, BookOpen, Repeat, ScanLine, EyeOff // Node floating labels
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -102,14 +103,115 @@ const LEGACY_HISTORY_DRAG_MIME = ['application/x-tap', 'now-history'].join('');
 const FOLDER_INPUT_NODE_TYPE = 'folder-input';
 const FOR_LOOP_NODE_TYPE = 'for-loop';
 const LEGACY_FOLDER_LOOP_NODE_TYPE = 'folder-loop';
+const AUDIO_NODE_TYPE = 'audio-node';
+const VIDEO_COMPOSE_NODE_TYPE = 'gen-video';
+const SCRIPT_NODE_TYPE = 'storyboard-node';
+const LIBTV_PRIMARY_NODE_TYPES = [
+    'text-node',
+    'input-image',
+    'video-input',
+    'gen-image',
+    VIDEO_COMPOSE_NODE_TYPE,
+    AUDIO_NODE_TYPE,
+    SCRIPT_NODE_TYPE,
+];
+const getLibTVNodeTitle = (type) => {
+    if (type === 'text-node') return '文本';
+    if (type === 'input-image') return '图片';
+    if (type === 'video-input') return '视频';
+    if (type === 'gen-image') return '图片生成';
+    if (type === 'gen-video') return '视频合成';
+    if (type === AUDIO_NODE_TYPE) return '音频';
+    if (type === SCRIPT_NODE_TYPE) return '脚本生成器';
+    if (type === FOR_LOOP_NODE_TYPE || type === LEGACY_FOLDER_LOOP_NODE_TYPE) return 'For 列表循环';
+    return '节点';
+};
+const LIBTV_NODE_MENU_ITEMS = [
+    { type: 'text-node', label: '文本', icon: Type, hint: '写下故事、场景或角色设定' },
+    { type: 'input-image', label: '图片', icon: ImageIcon, hint: '上传、拖拽或粘贴图片' },
+    { type: 'video-input', label: '视频', icon: Video, hint: '上传视频或截帧' },
+    { type: 'gen-video', label: '视频合成 Beta', icon: Scissors, hint: '拼接文本、图片、视频素材' },
+    { type: AUDIO_NODE_TYPE, label: '音频', icon: FileAudio, hint: '上传或拖入音频' },
+    { type: SCRIPT_NODE_TYPE, label: '脚本 Beta', icon: FileText, hint: '整理分镜或脚本结构' },
+    { type: FOR_LOOP_NODE_TYPE, label: 'For 列表循环', icon: Repeat, hint: '批量处理文件列表' },
+];
+const LIBTV_RESOURCE_MENU_ITEMS = [
+    { id: 'upload', label: '上传', icon: UploadCloud },
+    { id: 'library', label: '从图库选择', icon: FolderOpen },
+];
 const isForLoopNodeType = (type) => type === FOR_LOOP_NODE_TYPE || type === LEGACY_FOLDER_LOOP_NODE_TYPE;
 const getFolderLoopActionLabel = (nodeType) => {
-    if (nodeType === 'gen-image') return 'AI 绘图';
-    if (nodeType === 'gen-video') return 'AI 视频';
+    if (nodeType === 'gen-image') return '图片节点';
+    if (nodeType === 'gen-video') return '视频节点';
     if (nodeType === 'local-save') return '保存到本地';
     if (nodeType === 'preview') return '预览窗口';
+    if (nodeType === 'input-image') return '图片节点';
     return '下游节点';
 };
+
+const LIBTV_NODE_TITLE_META = {
+    'text-node': { title: '文本节点', numbered: true },
+    'input-image': { title: '图片节点', numbered: true },
+    'gen-image': { title: '图片节点', numbered: true },
+    'video-input': { title: '视频节点', numbered: true },
+    [VIDEO_COMPOSE_NODE_TYPE]: { title: '视频合成', numbered: true },
+    [AUDIO_NODE_TYPE]: { title: '音频节点', numbered: true },
+    [SCRIPT_NODE_TYPE]: { title: '脚本生成', numbered: false },
+    [FOR_LOOP_NODE_TYPE]: { title: 'For 列表循环', numbered: false },
+    [LEGACY_FOLDER_LOOP_NODE_TYPE]: { title: 'For 列表循环', numbered: false },
+    [LOOP_END_NODE_TYPE]: { title: '循环结束', numbered: false },
+    [FOLDER_INPUT_NODE_TYPE]: { title: '选择文件', numbered: false },
+    preview: { title: '预览窗口', numbered: false },
+    'novel-input': { title: '小说输入', numbered: false },
+    'extract-characters-scenes': { title: '提取角色和场景', numbered: false },
+    'image-compare': { title: '图片对比', numbered: false },
+    'character-description': { title: '角色描述', numbered: false },
+    'scene-description': { title: '场景描述', numbered: false },
+    'generate-character-video': { title: '生成角色视频', numbered: false },
+    'generate-scene-video': { title: '生成场景视频', numbered: false },
+    'generate-character-image': { title: '生成角色图片', numbered: false },
+    'generate-scene-image': { title: '生成场景图片', numbered: false },
+    'create-character': { title: '创建角色', numbered: false },
+    'create-scene': { title: '创建场景', numbered: false },
+    'save-to-local': { title: '保存到本地', numbered: false },
+    'local-save': { title: '保存到本地', numbered: false },
+    'video-analyze': { title: '视频分析', numbered: false },
+};
+
+const getLibTVNodeBaseTitle = (type) => LIBTV_NODE_TITLE_META[type]?.title || getLibTVNodeTitle(type);
+
+const getLibTVNodeSequence = (node) => {
+    const raw = node?.libtvSequence ?? node?.displayIndex ?? node?.nodeIndex;
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? Math.trunc(value) : null;
+};
+
+const getMaxLibTVNodeSequence = (nodeList = []) => nodeList.reduce((max, node) => {
+    const sequence = getLibTVNodeSequence(node);
+    return sequence ? Math.max(max, sequence) : max;
+}, 0);
+
+const normalizeLibTVNodeSequences = (nodeList = []) => {
+    const sourceNodes = Array.isArray(nodeList) ? nodeList : [];
+    let nextSequence = getMaxLibTVNodeSequence(sourceNodes);
+    let changed = false;
+    const usedSequences = new Set();
+    const nodes = sourceNodes.map((node) => {
+        if (!node) return node;
+        const sequence = getLibTVNodeSequence(node);
+        if (sequence && !usedSequences.has(sequence)) {
+            usedSequences.add(sequence);
+            return node;
+        }
+        changed = true;
+        nextSequence += 1;
+        usedSequences.add(nextSequence);
+        return { ...node, libtvSequence: nextSequence };
+    });
+    return { nodes, changed, maxSequence: nextSequence };
+};
+
+const getLibTVNodeFloatingTitle = (node) => getLibTVNodeBaseTitle(node?.type);
 
 const migrateLegacyBrowserStorage = () => {
     try {
@@ -1806,31 +1908,31 @@ const styles = `
         .resize-handle { cursor: nwse-resize; opacity: 0; transition: opacity 0.16s, color 0.16s; }
         .node-wrapper:hover .resize-handle { opacity: 1; }
         
-        /* 连接点样式 */
-        .connector { position: absolute; top: 50%; transform: translateY(-50%); width: 1rem; height: 1.35rem; background-color: #16162a; border: 1px solid #3a3a5c; color: #a1a1aa; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: crosshair; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s, color 0.16s; z-index: 35; opacity: 0; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+        /* 连接点样式 - circular liblib.tv style */
+        .connector { position: absolute; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; background-color: #1a1a2e; border: 1.5px solid #4a4a6c; color: #a1a1aa; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: crosshair; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s, color 0.16s, box-shadow 0.16s; z-index: 35; opacity: 0; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
         .node-wrapper:hover .connector { opacity: 1; }
-        .connector:hover, .connector.active { background-color: #1a1a2e; border-color: #7c5bf5; transform: translateY(-50%) scale(1.04); opacity: 1; color: #ede9fe; }
-        .connector-right { right: -0.5rem; }
-        .theme-light .connector { background-color: #ffffff; border-color: #d4d4d8; color: #5a5a7a; box-shadow: 0 2px 8px rgba(24,24,27,0.10); }
+        .connector:hover, .connector.active { background-color: #7c5bf5; border-color: #a78bfa; transform: translateY(-50%) scale(1.12); opacity: 1; color: #fff; box-shadow: 0 0 0 4px rgba(124,91,245,0.2), 0 4px 12px rgba(124,91,245,0.3); }
+        .connector-right { right: -10px; }
+        .theme-light .connector { background-color: #ffffff; border-color: #d4d4d8; color: #6b6b88; box-shadow: 0 2px 8px rgba(24,24,27,0.10); }
         .theme-light .connector:hover,
-        .theme-light .connector.active { background-color: #f8fafc; border-color: #0284c7; color: #0369a1; }
+        .theme-light .connector.active { background-color: #7c5bf5; border-color: #a78bfa; color: #fff; box-shadow: 0 0 0 4px rgba(124,91,245,0.15), 0 4px 12px rgba(124,91,245,0.2); }
         .theme-solarized .connector { background-color: #fdf6e3; border-color: #d7cfb2; color: #586e75; box-shadow: 0 2px 8px rgba(88,110,117,0.12); }
         .theme-solarized .connector:hover,
-        .theme-solarized .connector.active { background-color: #eee8d5; border-color: #586e75; color: #475b62; }
-        
-        /* 输入点样式 */
-        .input-point { position: absolute; top: 50%; transform: translateY(-50%); left: -0.3rem; width: 0.6rem; height: 1.15rem; background-color: #1e1e32; border-radius: 0.35rem; border: 1px solid #3a3a5c; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s; z-index: 25; cursor: crosshair; opacity: 0.65; }
-        .node-wrapper:hover .input-point { background-color: #2e2e4a; opacity: 1; }
-        .input-point.connected { background-color: #2e1a65; border-color: #7c5bf5; box-shadow: none; opacity: 1; }
-        .input-point.active { background-color: #1a1a2e; border-color: #7c5bf5; transform: translateY(-50%) scale(1.08); box-shadow: 0 0 0 3px rgba(124,91,245,0.18); opacity: 1; }
+        .theme-solarized .connector.active { background-color: #6b4fd8; border-color: #a78bfa; color: #fff; box-shadow: 0 0 0 4px rgba(107,79,216,0.15), 0 4px 12px rgba(107,79,216,0.2); }
+
+        /* 输入点样式 - circular liblib.tv style */
+        .input-point { position: absolute; top: 50%; transform: translateY(-50%); left: -6px; width: 12px; height: 12px; background-color: #1e1e32; border-radius: 50%; border: 1.5px solid #4a4a6c; transition: opacity 0.16s, transform 0.16s, border-color 0.16s, background-color 0.16s, box-shadow 0.16s; z-index: 25; cursor: crosshair; opacity: 0.7; }
+        .node-wrapper:hover .input-point { background-color: #2e2e4a; opacity: 1; border-color: #5a5a7c; }
+        .input-point.connected { background-color: #7c5bf5; border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(124,91,245,0.15); opacity: 1; }
+        .input-point.active { background-color: #7c5bf5; border-color: #a78bfa; transform: translateY(-50%) scale(1.2); box-shadow: 0 0 0 4px rgba(124,91,245,0.2); opacity: 1; }
         .theme-light .input-point { background-color: #f4f4f5; border-color: #d4d4d8; }
-        .theme-light .node-wrapper:hover .input-point { background-color: #e4e4e7; }
-        .theme-light .input-point.connected { background-color: #e0f2fe; border-color: #0284c7; }
-        .theme-light .input-point.active { background-color: #f8fafc; border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2,132,199,0.14); }
+        .theme-light .node-wrapper:hover .input-point { background-color: #e4e4e7; border-color: #a1a1aa; }
+        .theme-light .input-point.connected { background-color: #7c5bf5; border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(124,91,245,0.12); }
+        .theme-light .input-point.active { background-color: #7c5bf5; border-color: #a78bfa; box-shadow: 0 0 0 4px rgba(124,91,245,0.15); }
         .theme-solarized .input-point { background-color: #eee8d5; border-color: #d7cfb2; }
-        .theme-solarized .node-wrapper:hover .input-point { background-color: #e6dec8; }
-        .theme-solarized .input-point.connected,
-        .theme-solarized .input-point.active { background-color: #d7cfb2; border-color: #586e75; box-shadow: 0 0 0 3px rgba(88,110,117,0.12); }
+        .theme-solarized .node-wrapper:hover .input-point { background-color: #e6dec8; border-color: #b0a888; }
+        .theme-solarized .input-point.connected { background-color: #6b4fd8; border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(107,79,216,0.12); }
+        .theme-solarized .input-point.active { background-color: #6b4fd8; border-color: #a78bfa; box-shadow: 0 0 0 4px rgba(107,79,216,0.15); }
 
         /* Lightbox & Overlay */
         .lightbox-overlay { background-color: rgba(0, 0, 0, 0.95); backdrop-filter: blur(5px); }
@@ -5054,11 +5156,11 @@ function DreamApp() {
             const saved = localStorage.getItem(AUTOSAVE_LOCAL_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                return parsed.nodes || [];
+                return normalizeLibTVNodeSequences(parsed.nodes || []).nodes;
             }
             // Compatible with legacy storage
             const legacy = localStorage.getItem('dream_nodes');
-            return legacy ? JSON.parse(legacy) : [];
+            return legacy ? normalizeLibTVNodeSequences(JSON.parse(legacy)).nodes : [];
         } catch (e) { return []; }
     });
     const [connections, setConnections] = useState(() => {
@@ -5085,7 +5187,7 @@ function DreamApp() {
             if (!saved || cancelled) return;
             try {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed.nodes)) setNodes(parsed.nodes);
+                if (Array.isArray(parsed.nodes)) setNodes(normalizeLibTVNodeSequences(parsed.nodes).nodes);
                 if (Array.isArray(parsed.connections)) setConnections(parsed.connections);
             } catch (e) { }
         };
@@ -5477,8 +5579,7 @@ function DreamApp() {
             apiType: 'openai',
             useProxy: false,
             forceAsync: false,
-            modelsUrl: '',
-            useFullUrl: false
+            modelsUrl: ''
         };
         return {
             ...defaults,
@@ -6518,6 +6619,7 @@ function DreamApp() {
 
     const [contextMenu, setContextMenu] = useState({ x: 0, y: 0, worldX: 0, worldY: 0, visible: false });
     const [contextMenuExpanded, setContextMenuExpanded] = useState(null);
+    const [nodePaletteOpen, setNodePaletteOpen] = useState(false);
     const [selectionContextMenu, setSelectionContextMenu] = useState({ visible: false, x: 0, y: 0 });
     const [historyContextMenu, setHistoryContextMenu] = useState({ visible: false, x: 0, y: 0, worldX: 0, worldY: 0, item: null });
     const [historySendMenuOpen, setHistorySendMenuOpen] = useState(false);
@@ -6608,6 +6710,7 @@ function DreamApp() {
     const [expandedProviders, setExpandedProviders] = useState({}); // V3.4.7: Settings Modal Provider 展开状态
     const [editingProvider, setEditingProvider] = useState(null); // V3.4.7: Settings Modal Provider 编辑状态
     const [deletingProviderKey, setDeletingProviderKey] = useState(null); // V3.4.7: Settings Modal Provider 删除确认状态
+    const [providerKeyVisible, setProviderKeyVisible] = useState({});
     const [apiTesting, setApiTesting] = useState(null);
     const [apiStatus, setApiStatus] = useState({});
     const [fetchingModels, setFetchingModels] = useState({});
@@ -8532,6 +8635,7 @@ function DreamApp() {
     const chatEndRef = useRef(null);
     const chatInputRef = useRef(null);
     const nodesRef = useRef(nodes);
+    const libtvSequenceRef = useRef(getMaxLibTVNodeSequence(nodes));
     const historyRef = useRef(history);
     const selectedNodeIdRef = useRef(selectedNodeId);
     const selectedNodeIdsRef = useRef(selectedNodeIds); // 存储多选节点ID的ref
@@ -8544,6 +8648,14 @@ function DreamApp() {
     const pendingPanUpdate = useRef(null); // 待处理的画布拖动更新
     const multiNodeDragStartPos = useRef(null); // 多节点拖动起始位置，用于防止累积误差
     const lastZoomRef = useRef(null); // 跟踪上次的 zoom 值，用于检测缩放切换
+    const reserveLibTVNodeSequence = useCallback(() => {
+        const nextSequence = Math.max(
+            libtvSequenceRef.current || 0,
+            getMaxLibTVNodeSequence(nodesRef.current || [])
+        ) + 1;
+        libtvSequenceRef.current = nextSequence;
+        return nextSequence;
+    }, []);
 
     useEffect(() => {
         // 保存配置到 localStorage（不再过滤任何模型）
@@ -9126,6 +9238,16 @@ function DreamApp() {
         isSelectingRef.current = isSelecting; // 同步更新框选状态ref
     }, [nodes, history, selectedNodeId, selectedNodeIds, connections, isSelecting]);
     useEffect(() => {
+        const normalized = normalizeLibTVNodeSequences(nodes);
+        const maxSequence = normalized.maxSequence || 0;
+        if (maxSequence > (libtvSequenceRef.current || 0)) {
+            libtvSequenceRef.current = maxSequence;
+        }
+        if (normalized.changed) {
+            setNodes(normalized.nodes);
+        }
+    }, [nodes]);
+    useEffect(() => {
         const aliveIds = new Set(nodes.map((node) => node.id));
         setNodeSelectionPriority((prev) => {
             let changed = false;
@@ -9639,19 +9761,14 @@ function DreamApp() {
             };
         });
 
-        // 2. 填充模型
+        // 2. 填充模型 — 只显示属于已配置 provider 的模型
         apiConfigs.forEach(config => {
             if (DELETED_MODEL_IDS.includes(config.id)) return;
             const resolved = resolveApiConfig(config);
             if (!resolved) return;
             if (resolved.disabled) return;
             const providerKey = resolved.provider || 'Other';
-            if (!groups[providerKey]) {
-                groups[providerKey] = {
-                    name: providerKey,
-                    models: []
-                };
-            }
+            if (!groups[providerKey]) return; // 跳过没有对应 provider 的模型
             groups[providerKey].models.push(resolved);
         });
         return groups;
@@ -14183,13 +14300,20 @@ function DreamApp() {
         if (!dragUrl && e.dataTransfer?.files?.length) {
             const world = screenToWorld(e.clientX, e.clientY);
             const files = Array.from(e.dataTransfer.files).filter(file =>
-                file.type.startsWith('image/') || file.type.startsWith('video/')
+                file.type.startsWith('image/') || file.type.startsWith('video/') || file.type.startsWith('audio/')
             );
             for (let index = 0; index < files.length; index += 1) {
                 const file = files[index];
                 const content = await readDroppedFileAsDataUrl(file);
                 const offset = index * 36;
-                if (file.type.startsWith('video/')) {
+                if (file.type.startsWith('audio/')) {
+                    const node = addNode(AUDIO_NODE_TYPE, world.x + offset, world.y + offset, null, content);
+                    if (node) {
+                        setNodes(prev => prev.map(n => n.id === node.id
+                            ? { ...n, settings: { ...(n.settings || {}), audioFileName: file.name, audioType: file.type } }
+                            : n));
+                    }
+                } else if (file.type.startsWith('video/')) {
                     addNode('video-input', world.x + offset, world.y + offset, null, content);
                 } else {
                     let dims = undefined;
@@ -17758,9 +17882,6 @@ function DreamApp() {
                 // --- 发送请求逻辑 (通用) (Supports Failover) ---
                 // --- 发送请求逻辑 (通用) (Supports Failover) ---
 
-                const providerUseFullUrl = !!providers[providerKey]?.useFullUrl;
-                if (providerUseFullUrl && !requestOverride) endpoint = baseUrl;
-
                 // Helper to perform fetch
                 const performFetch = async (currentApiKey, currentBaseUrl) => {
                     const overrideUrl = requestOverride?.url || endpoint;
@@ -19013,9 +19134,6 @@ function DreamApp() {
                     }
                 }
 
-                const providerUseFullUrl = !!providers[providerKey]?.useFullUrl;
-                if (providerUseFullUrl && !requestOverride) endpoint = baseUrl;
-
                 const overrideUrl = requestOverride?.url || endpoint;
                 const overrideMethod = (requestOverride?.method || 'POST').toString().toUpperCase();
                 let overrideBodyType = (requestOverride?.bodyType || (body instanceof FormData ? 'multipart' : 'json')).toString().toLowerCase();
@@ -19606,7 +19724,7 @@ function DreamApp() {
             updateNodeSettings(nodeId, { status: 'failed', errors: [{ index: -1, filename: '', error: chain.error || '循环链路无效' }] });
             return;
         }
-        const executableNodes = chain.nodes.filter((node) => ['gen-image', 'gen-video', 'local-save', 'preview'].includes(node.type));
+        const executableNodes = chain.nodes.filter((node) => ['gen-image', 'gen-video', 'local-save', 'preview', 'input-image'].includes(node.type));
         if (executableNodes.length === 0) {
             showToast('循环开始和结束之间没有图像操作节点', 'warning');
             return;
@@ -19745,6 +19863,16 @@ function DreamApp() {
                             )));
                         }
                         runtimeOutputs.set(stepNode.id, inputs);
+                    } else if (stepNode.type === 'input-image') {
+                        const first = inputs[0];
+                        if (first?.url) {
+                            setNodes((prev) => prev.map((n) => (
+                                n.id === stepNode.id
+                                    ? { ...n, content: first.url }
+                                    : n
+                            )));
+                        }
+                        runtimeOutputs.set(stepNode.id, first?.url ? [{ url: first.url, type: 'image' }] : inputs);
                     } else {
                         runtimeOutputs.set(stepNode.id, inputs);
                     }
@@ -20968,7 +21096,7 @@ function DreamApp() {
         if (['dark', 'light', 'solarized'].includes(tempState.theme)) {
             setTheme(tempState.theme);
         }
-        if (tempState.nodes?.length > 0) setNodes(tempState.nodes);
+        if (tempState.nodes?.length > 0) setNodes(normalizeLibTVNodeSequences(tempState.nodes).nodes);
         if (tempState.history?.length > 0) setHistory(tempState.history);
     };
 
@@ -21335,9 +21463,12 @@ function DreamApp() {
         saveToUndoStack(); // V3.4.6: 保存到撤销栈
         if (type === FOR_LOOP_NODE_TYPE) {
             const timestamp = Date.now();
+            const startSequence = reserveLibTVNodeSequence();
+            const endSequence = reserveLibTVNodeSequence();
             const startNode = {
                 id: `node-${timestamp}-loop-start`,
                 type: FOR_LOOP_NODE_TYPE,
+                libtvSequence: startSequence,
                 x: worldX - 180,
                 y: worldY - 160,
                 width: 360,
@@ -21366,6 +21497,7 @@ function DreamApp() {
             const endNode = {
                 id: `node-${timestamp}-loop-end`,
                 type: LOOP_END_NODE_TYPE,
+                libtvSequence: endSequence,
                 x: worldX + 260,
                 y: worldY - 70,
                 width: 260,
@@ -21407,15 +21539,15 @@ function DreamApp() {
             return startNode;
         }
         const defaultSize = type === 'gen-video'
-            ? { w: 400, h: 500 }
+            ? { w: 520, h: 420 }
             : type === 'gen-image'
-                ? { w: 440, h: 420 }
+                ? { w: 460, h: 400 }
                 : type === 'video-input'
-                    ? { w: 580, h: 460 }
+                    ? { w: 520, h: 400 }
                     : type === 'video-analyze'
                         ? { w: 480, h: 500 }
                         : type === 'storyboard-node'
-                            ? { w: 720, h: 500 }
+                            ? { w: 460, h: 420 }
                             : type === 'image-compare'
                                 ? { w: 400, h: 300 }
                                 : type === 'preview'
@@ -21426,8 +21558,10 @@ function DreamApp() {
                                         ? { w: 360, h: 420 }
                                     : type === LOOP_END_NODE_TYPE
                                         ? { w: 260, h: 160 }
+                                    : type === AUDIO_NODE_TYPE
+                                        ? { w: 360, h: 300 }
                                     : type === 'text-node'
-                                        ? { w: 280, h: 200 }
+                                        ? { w: 360, h: 320 }
                                         : type === 'novel-input'
                                             ? { w: 400, h: 500 }
                                             : type === 'extract-characters-scenes'
@@ -21440,12 +21574,13 @@ function DreamApp() {
                                                             ? { w: 400, h: 450 }
                                                             : (type === 'generate-character-image' || type === 'generate-scene-image')
                                                                 ? { w: 400, h: 450 }
-                                                                : type === 'local-save'
+                                        : type === 'local-save'
                                                                     ? { w: 320, h: 380 }
-                                        : { w: 260, h: 260 };
+                                        : { w: 320, h: 260 };
         const newNode = {
             id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             type,
+            libtvSequence: reserveLibTVNodeSequence(),
             x: worldX - defaultSize.w / 2,
             y: worldY - defaultSize.h / 2,
             width: defaultSize.w,
@@ -21481,6 +21616,8 @@ function DreamApp() {
                                 tableMarkdownCollapsed: false,
                                 llmWorkspaceHeight: STORYBOARD_WORKSPACE_DEFAULT_HEIGHT
                             }
+                                    : type === AUDIO_NODE_TYPE
+                                        ? { audioFileName: '', audioType: '', isPlaying: false }
                                     : type === 'text-node'
                                         ? { text: initialContent || '' }
                                         : type === 'novel-input'
@@ -24169,6 +24306,56 @@ ${inputText.substring(0, 15000)} ... (截断)
                 // V3.4.7: 保存撤销状态（图片更换是可撤销的操作）
                 saveToUndoStack();
                 setNodes((prev) => prev.map((n) => n.id === nodeId ? { ...n, content: content, dimensions } : n));
+            };
+            reader.readAsDataURL(file);
+        }
+        if (!e.target.closest?.('[data-node-id], [data-sidebar-container="true"]')) {
+            setNodePaletteOpen(false);
+        }
+    };
+
+    const handleAudioFileUpload = (nodeId, e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            saveToUndoStack();
+            setNodes((prev) => prev.map((n) => n.id === nodeId
+                ? {
+                    ...n,
+                    content: ev.target.result,
+                    settings: {
+                        ...(n.settings || {}),
+                        audioFileName: file.name,
+                        audioType: file.type
+                    }
+                }
+                : n));
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
+
+    const handleAudioDrop = (nodeId, e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget.classList.remove('drag-over');
+        const file = Array.from(e.dataTransfer?.files || []).find((entry) => entry.type.startsWith('audio/'));
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                saveToUndoStack();
+                setNodes((prev) => prev.map((n) => n.id === nodeId
+                    ? {
+                        ...n,
+                        content: ev.target.result,
+                        settings: {
+                            ...(n.settings || {}),
+                            audioFileName: file.name,
+                            audioType: file.type
+                        }
+                    }
+                    : n));
             };
             reader.readAsDataURL(file);
         }
@@ -27348,6 +27535,7 @@ ${inputText.substring(0, 15000)} ... (截断)
             ? String(node.content || connectedImages[0] || '')
             : String(node.content || '');
         const hasLinkedInputImage = node.type === 'input-image' && !node.content && !!inputImageDisplayContent;
+        const nodeFloatingTitle = getLibTVNodeFloatingTitle(node);
 
         // 功能3：检查是否为相邻节点（当有节点被选中时）- 使用缓存的相邻节点集合
         const selectedId = selectedNodeId || (selectedNodeIds.size === 1 ? Array.from(selectedNodeIds)[0] : null);
@@ -27529,7 +27717,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     )}
 
                     {/* 保留连接点占位符，确保连线位置正确（简化样式） */}
-                    {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
+                    {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== AUDIO_NODE_TYPE && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
                         node.type === 'image-compare' ? (
                             <>
                                 <div
@@ -27669,7 +27857,9 @@ ${inputText.substring(0, 15000)} ... (截断)
                     MozOsxFontSmoothing: 'grayscale',
                     textRendering: 'optimizeLegibility',
                     transform: 'translateZ(0)',
-                    backfaceVisibility: 'hidden'
+                    backfaceVisibility: 'hidden',
+                    backdropFilter: 'blur(1.5px)',
+                    transition: 'width 300ms, height 300ms, box-shadow 0.2s, border-color 0.15s'
                 }}
                 onDragOver={enableSmartDrop ? handleCanvasDragOver : undefined}
                 onDrop={enableSmartDrop ? (e) => handleGenNodeDrop(node.id, e) : undefined}
@@ -27768,6 +27958,59 @@ ${inputText.substring(0, 15000)} ... (截断)
                     }
                 }}
             >
+                {/* node-floating-ui: 浮动标签 (liblib.tv style) */}
+                <div className="absolute left-0 flex items-center gap-1 pointer-events-none" style={{ top: '-26px', zIndex: 10 }}>
+                    <span className={`flex items-center gap-1.5 text-[12px] ${theme === 'dark' ? 'text-zinc-400' : theme === 'solarized' ? 'text-[#586e75]' : 'text-zinc-500'}`}>
+                        {node.type === 'gen-image' && <Wand2 size={13} />}
+                        {node.type === 'gen-video' && <Video size={13} />}
+                        {node.type === 'input-image' && <ImageIcon size={13} />}
+                        {node.type === 'video-input' && <Film size={13} />}
+                        {node.type === AUDIO_NODE_TYPE && <FileAudio size={13} />}
+                        {node.type === 'text-node' && <Type size={13} />}
+                        {node.type === 'preview' && <Eye size={13} />}
+                        {node.type === 'storyboard-node' && <FileText size={13} />}
+                        {node.type === 'novel-input' && <BookOpen size={13} />}
+                        {node.type === 'extract-characters-scenes' && <Users size={13} />}
+                        {node.type === 'image-compare' && <Layers size={13} />}
+                        {(node.type === 'character-description' || node.type === 'scene-description') && <FileText size={13} />}
+                        {(node.type === 'generate-character-video' || node.type === 'generate-scene-video') && <Video size={13} />}
+                        {(node.type === 'generate-character-image' || node.type === 'generate-scene-image') && <Wand2 size={13} />}
+                        {(node.type === 'create-character' || node.type === 'create-scene') && <Plus size={13} />}
+                        {(node.type === 'save-to-local' || node.type === 'local-save') && <Download size={13} />}
+                        {node.type === FOLDER_INPUT_NODE_TYPE && <FolderOpen size={13} />}
+                        {isForLoopNodeType(node.type) && <Repeat size={13} />}
+                        {node.type === LOOP_END_NODE_TYPE && <Square size={13} />}
+                        {node.type === 'video-analyze' && <ScanLine size={13} />}
+                        <span className="truncate max-w-[200px]" style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {node.type === 'input-image' ? nodeFloatingTitle :
+                                node.type === 'video-input' ? nodeFloatingTitle :
+                                    node.type === AUDIO_NODE_TYPE ? nodeFloatingTitle :
+                                    node.type === 'gen-image' ? nodeFloatingTitle :
+                                        node.type === 'gen-video' ? nodeFloatingTitle :
+                                            node.type === 'text-node' ? nodeFloatingTitle :
+                                                node.type === 'preview' ? t('预览窗口') :
+                                                    node.type === 'storyboard-node' ? nodeFloatingTitle :
+                                                        node.type === 'novel-input' ? t('小说输入') :
+                                                        node.type === 'extract-characters-scenes' ? t('提取角色和场景') :
+                                                            node.type === 'image-compare' ? t('图片对比') :
+                                                                node.type === 'character-description' ? t('角色描述') :
+                                                                    node.type === 'scene-description' ? t('场景描述') :
+                                                                        node.type === 'generate-character-video' ? t('生成角色视频') :
+                                                                            node.type === 'generate-scene-video' ? t('生成场景视频') :
+                                                                                node.type === 'generate-character-image' ? t('生成角色图片') :
+                                                                                    node.type === 'generate-scene-image' ? t('生成场景图片') :
+                                                                                        node.type === 'create-character' ? t('创建角色') :
+                                                                                            node.type === 'create-scene' ? t('创建场景') :
+                                                                                                (node.type === 'save-to-local' || node.type === 'local-save') ? t('保存到本地') :
+                                                                                                    node.type === FOLDER_INPUT_NODE_TYPE ? t('选择文件夹') :
+                                                                                                        isForLoopNodeType(node.type) ? t('For 循环') :
+                                                                                                            node.type === LOOP_END_NODE_TYPE ? t('循环结束') :
+                                                                                                                node.type === 'video-analyze' ? t('视频分析') :
+                                                                                                                    node.type || t('节点')}
+                        </span>
+                    </span>
+                </div>
+
                 {/* Node background image (high detail) */}
                 {(node.bgImage || nodeBackground) && (
                     <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 'inherit', zIndex: 0 }}>
@@ -27789,7 +28032,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                 </button>
                 <div className="absolute bottom-1 right-1 w-4 h-4 z-[100] resize-handle flex items-end justify-end p-0.5 text-zinc-500 hover:text-sky-400" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setResizingNodeId(node.id); }}><svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M8 0L8 8L0 8" stroke="currentColor" strokeWidth="1.75" /></svg></div>
 
-                {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
+                    {node.type !== 'input-image' && node.type !== 'video-input' && node.type !== AUDIO_NODE_TYPE && node.type !== 'video-analyze' && node.type !== 'preview' && node.type !== FOLDER_INPUT_NODE_TYPE && (
                     node.type === 'image-compare' ? (
                         <>
                             <div
@@ -27860,14 +28103,30 @@ ${inputText.substring(0, 15000)} ... (截断)
                     </div>
                 )}
 
+                {node.type === AUDIO_NODE_TYPE && (
+                    <div
+                        className={`input-point ${isConnected ? 'connected' : ''} ${connectingTarget === node.id && !connectingInputType ? 'active' : ''}`}
+                        title={t('输入')}
+                        onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const world = screenToWorld(e.clientX, e.clientY);
+                            setMousePos(world);
+                            setConnectingTarget(node.id);
+                            setConnectingInputType('default');
+                        }}
+                        onMouseUp={(e) => handleNodeMouseUp(node.id, e, 'default')}
+                    />
+                )}
+
 
                 <div
-                    className={`overflow-hidden rounded-md flex-1 flex flex-col pointer-events-none h-full w-full relative ${theme === 'dark' ? 'bg-[#16162a]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
+                    className={`overflow-hidden rounded-md flex-1 flex flex-col pointer-events-none h-full w-full relative ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#eee8d5]' : 'bg-white'
                         }`}
                 >
                     {/* V2.6.1 Feature: New Node Types Rendering */}
                     {node.type === 'novel-input' && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             <div className="flex items-center gap-1.5 px-3 py-2 border-b text-xs font-semibold shrink-0">
                                 <FileText size={12} className="text-blue-500" />
                                 <span>{t('小说输入')}</span>
@@ -27905,7 +28164,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
                     {node.type === 'extract-characters-scenes' && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
                                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                                     <Users size={12} className="text-purple-500" />
@@ -28081,7 +28340,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
                     {(node.type === 'character-description' || node.type === 'scene-description') && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             {(() => {
                                 const isCharacter = node.type === 'character-description';
                                 const title = isCharacter ? '角色描述' : '场景描述';
@@ -28374,7 +28633,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
                     {(node.type === 'generate-character-video' || node.type === 'generate-scene-video') && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             {(() => {
                                 const isCharacter = node.type === 'generate-character-video';
                                 const descType = isCharacter ? 'character-description' : 'scene-description';
@@ -28701,7 +28960,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
                     {(node.type === 'generate-character-image' || node.type === 'generate-scene-image') && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             {(() => {
                                 const isScene = node.type === 'generate-scene-image';
                                 const latestCompleted = history.find(h => h.sourceNodeId === node.id && h.status === 'completed');
@@ -28955,7 +29214,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
                     {(node.type === 'create-character' || node.type === 'create-scene') && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             {(() => {
                                 const isCharacter = node.type === 'create-character';
                                 const title = isCharacter ? '创建角色' : '创建场景';
@@ -29181,7 +29440,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
                     {node.type === FOLDER_INPUT_NODE_TYPE && (
-                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                        <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                             <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
                                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                                     <FolderOpen size={12} className="text-blue-400" />
@@ -29220,11 +29479,11 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const usingFolderInput = !!folderInput.sourceNodeId;
                         const progressPct = files.length > 0 ? Math.min(100, Math.round((currentIndex / files.length) * 100)) : 0;
                         const previewFiles = getFolderLoopPreviewFiles(files, status === 'running' ? currentIndex : -1);
-                        const loopPanelClass = `rounded-md border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/35' : 'border-zinc-200 bg-white/80'}`;
+                        const loopPanelClass = `rounded-md border ${theme === 'dark' ? 'border-white/10 bg-[#2a2a2a]/55' : 'border-zinc-200 bg-white/80'}`;
 
                         return (
-                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-950/90' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-50'}`}>
-                                <div className={`flex items-center justify-between px-3 py-2 border-b shrink-0 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/60' : 'border-zinc-200 bg-white/70'}`}>
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-50'}`}>
+                                <div className={`flex items-center justify-between px-3 py-2 border-b shrink-0 ${theme === 'dark' ? 'border-white/10 bg-[#252525]' : 'border-zinc-200 bg-white/70'}`}>
                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                         <FolderOpen size={12} className="text-sky-400" />
                                         <span>{node.type === LEGACY_FOLDER_LOOP_NODE_TYPE ? t('文件夹循环') : t('For 列表循环开始')}</span>
@@ -29286,7 +29545,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {t('选择文件夹')}
                                         </button>
                                         <button
-                                            className={`h-7 rounded-md border text-[10px] font-medium transition-colors ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'}`}
+                                            className={`h-7 rounded-md border text-[10px] font-medium transition-colors ${theme === 'dark' ? 'border-white/10 bg-[#252525] text-zinc-200 hover:bg-[#2a2a2a]' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'}`}
                                             onMouseDown={(e) => e.stopPropagation()}
                                             onClick={() => isRunning ? stopFolderLoopNode(node.id) : resetFolderLoopNode(node.id)}
                                         >
@@ -29316,12 +29575,12 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         className={`min-w-0 overflow-hidden rounded-md border transition-colors ${file.isActive
                                                             ? 'border-sky-400 bg-sky-500/10'
                                                             : theme === 'dark'
-                                                                ? 'border-zinc-800 bg-zinc-900/80'
+                                                                ? 'border-white/10 bg-[#2a2a2a]'
                                                                 : 'border-zinc-200 bg-white'
                                                             }`}
                                                         title={file.filename}
                                                     >
-                                                        <div className={`relative aspect-square overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'}`}>
+                                                        <div className={`relative aspect-square overflow-hidden ${theme === 'dark' ? 'bg-[#1e1e1e]' : 'bg-zinc-100'}`}>
                                                             <img
                                                                 src={file.url}
                                                                 alt={file.filename}
@@ -29375,10 +29634,10 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const status = node.settings?.status || 'idle';
                         const completedCount = Number(node.settings?.completedCount || 0);
                         const totalCount = Number(node.settings?.totalCount || 0);
-                        const loopEndPanelClass = `rounded-md border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/35' : 'border-zinc-200 bg-white/80'}`;
+                        const loopEndPanelClass = `rounded-md border ${theme === 'dark' ? 'border-white/10 bg-[#2a2a2a]/55' : 'border-zinc-200 bg-white/80'}`;
                         return (
-                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-950/90' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-50'}`}>
-                                <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-50'}`}>
+                                <div className={`flex items-center justify-between px-3 py-2 border-b shrink-0 ${theme === 'dark' ? 'border-white/10' : ''}`}>
                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                         <CheckCircle2 size={12} className="text-emerald-400" />
                                         <span>{t('循环结束')}</span>
@@ -29418,7 +29677,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         const selectedSavePath = normalizeLocalPath(node.settings?.savePath || localServerConfig.savePath || '');
 
                         return (
-                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
+                            <div className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}>
                                 <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
                                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                                         <HardDrive size={12} className="text-green-500" />
@@ -29427,7 +29686,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     <div className={`w-2 h-2 rounded-full ${serverConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} title={serverConnected ? "已连接本地服务" : "未连接"} />
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col gap-3">
-                                    <div className={`rounded-md border p-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950/35' : 'border-zinc-200 bg-white/80'}`}>
+                                    <div className={`rounded-md border p-2 ${theme === 'dark' ? 'border-white/10 bg-[#2a2a2a]/55' : 'border-zinc-200 bg-white/80'}`}>
                                         <div className="flex items-center justify-between gap-2">
                                             <span className="text-[10px] font-medium opacity-70">{t('保存文件夹')}</span>
                                             <button
@@ -29541,7 +29800,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     {node.type === 'input-image' && (
                         <div
                             className={`relative w-full h-full flex flex-col items-center justify-center transition-colors pointer-events-auto drop-zone ${theme === 'dark'
-                                ? 'bg-zinc-900 group-hover:bg-zinc-800'
+                                ? 'bg-[#252525] group-hover:bg-[#2a2a2a]'
                                 : theme === 'solarized'
                                     ? 'bg-[#eee8d5] group-hover:bg-[#e4dcc2]'
                                     : 'bg-zinc-100 group-hover:bg-zinc-200'
@@ -29613,6 +29872,17 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {t('上游引用')}
                                         </div>
                                     )}
+                                    {node.characterRef && !hasLinkedInputImage && (
+                                        <div
+                                            className={`absolute top-2 left-2 text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm border ${theme === 'dark'
+                                                ? 'bg-purple-500/20 text-purple-200 border-purple-300/30'
+                                                : 'bg-purple-50/90 text-purple-600 border-purple-200'
+                                                }`}
+                                            title={`角色: @${node.characterRef}`}
+                                        >
+                                            @{node.characterRef}
+                                        </div>
+                                    )}
                                     {/* 悬浮菜单：当 isMasking 为 true 时强制隐藏 */}
                                     {!node.isMasking && (
                                         <div className="absolute inset-0 bg-black/40 transition-opacity gap-2 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center">
@@ -29659,6 +29929,32 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 <br />
                                                 {t('或 Ctrl+V 粘贴')}
                                             </div>
+                                            {characterLibrary.length > 0 && (
+                                                <div className="flex gap-1.5 mt-1">
+                                                    {characterLibrary.slice(0, 6).map(char => (
+                                                        <button
+                                                            key={char.id}
+                                                            className={`relative shrink-0 transition-all hover:scale-110 ${node.characterRef === char.username ? 'ring-2 ring-purple-400 scale-110' : 'opacity-80 hover:opacity-100'}`}
+                                                            title={`@${char.username}`}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const imgUrl = char.localCacheUrl || char.profile_picture_url || '';
+                                                                if (imgUrl) {
+                                                                    setNodes(prev => prev.map(n => n.id === node.id ? { ...n, content: imgUrl, characterRef: char.username } : n));
+                                                                }
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={char.localCacheUrl || char.profile_picture_url || ''}
+                                                                alt={char.username}
+                                                                className="w-6 h-6 rounded-full object-cover border border-white/30"
+                                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                            />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     {/* 非编辑模式下的蒙版回显 */}
@@ -29707,35 +30003,52 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full w-full">
-                                    <div
-                                        className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 border ${theme === 'dark'
-                                            ? 'bg-zinc-800 border-zinc-700/50'
-                                            : 'bg-zinc-100 border-zinc-300'
-                                            }`}
-                                    >
-                                        <ImageIcon
-                                            className={`w-6 h-6 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'
-                                                }`}
-                                        />
-                                    </div>
-                                    <label
-                                        className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer pointer-events-auto ${theme === 'solarized'
-                                            ? 'bg-[#616161] hover:bg-[#4b4b4b] text-white'
-                                            : 'bg-blue-600 hover:bg-blue-500 text-white'
-                                            }`}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                    >
-                                        {t('选择图片')}
-                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(node.id, e)} />
-                                    </label>
-                                    <div
-                                        className={`text-[10px] text-center mt-2 pointer-events-none ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'
-                                            }`}
-                                    >
-                                        {t('或拖放图片到此处')}
-                                        <br />
-                                        {t('或 Ctrl+V 粘贴')}
+                                <div className="dream-shot-node-empty h-full w-full">
+                                    <ImageIcon className="dream-shot-node-icon" size={58} />
+                                    <div className="dream-shot-node-actions">
+                                        <div className="dream-shot-node-action-label">{t('尝试')}:</div>
+                                        <label className="dream-shot-node-action cursor-pointer" onMouseDown={(e) => e.stopPropagation()}>
+                                            <UploadCloud size={12} />
+                                            <span>{t('上传图片')}</span>
+                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(node.id, e)} />
+                                        </label>
+                                        <div className="dream-shot-node-action">
+                                            <ClipboardCopy size={12} />
+                                            <span>{t('Ctrl+V 粘贴图片')}</span>
+                                        </div>
+                                        <div className="dream-shot-node-action">
+                                            <ImagePlus size={12} />
+                                            <span>{t('拖入图片或历史素材')}</span>
+                                        </div>
+                                        {characterLibrary.length > 0 && (
+                                            <div className="mt-2 w-full">
+                                                <div className="dream-shot-node-action-label mb-1">{t('角色库')}:</div>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {characterLibrary.slice(0, 8).map(char => (
+                                                        <button
+                                                            key={char.id}
+                                                            className="relative shrink-0 transition-all opacity-80 hover:opacity-100 hover:scale-110"
+                                                            title={`@${char.username}`}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const imgUrl = char.localCacheUrl || char.profile_picture_url || '';
+                                                                if (imgUrl) {
+                                                                    setNodes(prev => prev.map(n => n.id === node.id ? { ...n, content: imgUrl, characterRef: char.username } : n));
+                                                                }
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={char.localCacheUrl || char.profile_picture_url || ''}
+                                                                alt={char.username}
+                                                                className="w-7 h-7 rounded-full object-cover border border-white/20"
+                                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                            />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -29745,7 +30058,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                     {node.type === 'video-input' && (
                         <div
                             className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto drop-zone video-input-container ${theme === 'dark'
-                                ? 'bg-zinc-900/80'
+                                ? 'bg-[#252525]'
                             : theme === 'solarized'
                                 ? 'bg-[#eee8d5]'
                                     : 'bg-zinc-100'
@@ -29857,33 +30170,64 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 ) : (
                                     /* Fix: Allow folding upload box when empty */
                                     (node.settings?.videoExpanded !== false) && (
-                                        <div className="flex flex-col items-center justify-center gap-3 w-full px-4 mx-auto shrink-0 transition-colors border-2 border-transparent hover:border-blue-500/30 rounded-lg p-4"
+                                        <div className="dream-shot-node-empty dream-shot-node-video-empty w-full px-4 mx-auto shrink-0 transition-colors border-2 border-transparent hover:border-blue-500/30 rounded-lg p-4"
                                             onDrop={(e) => handleVideoDrop(node.id, e)} /* V3.5.20: Explicit drop zone */
                                         >
-                                            <div className="flex flex-col gap-2 items-center justify-center shrink-0 w-full">
-                                                {/* V3.5.21 Layout Fix: Enforce Fixed Size Container */}
-                                                <div className={`relative w-full h-64 flex flex-col items-center justify-center border-2 border-dashed rounded-lg transition-colors ${dragOverNodeId === node.id && !dragInsertNodeId
-                                                    ? 'border-blue-500 bg-blue-500/10'
-                                                    : theme === 'dark' ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'
-                                                    }`}>
-
-                                                    <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
-                                                        <UploadCloud size={48} className={`mb-2 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`} />
-                                                        <span className={`text-xs ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                                                            {t('点击选择或拖入视频')}
-                                                        </span>
-                                                        <input
-                                                            type="file"
-                                                            className="hidden"
-                                                            accept="video/*"
-                                                            onChange={(e) => handleVideoFileUpload(node.id, e.target.files?.[0])}
-                                                        />
-                                                    </label>
+                                            <label className={`dream-shot-node-video-drop cursor-pointer ${dragOverNodeId === node.id && !dragInsertNodeId ? 'is-drag-over' : ''}`}>
+                                                <Play size={60} className="dream-shot-node-icon" fill="currentColor" />
+                                                <span>{t('点击选择或拖入视频')}</span>
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="video/*"
+                                                    onChange={(e) => handleVideoFileUpload(node.id, e.target.files?.[0])}
+                                                />
+                                            </label>
+                                            <div className="dream-shot-node-actions">
+                                                <div className="dream-shot-node-action-label">{t('尝试')}:</div>
+                                                <div className="dream-shot-node-action">
+                                                    <Layers size={12} />
+                                                    <span>{t('自动抽帧')}</span>
                                                 </div>
-                                                <div className="text-[10px] text-center text-zinc-500 pointer-events-none">
-                                                    {t('支持 MP4/WEBM，拖拽或 Ctrl+V 不可用')}
+                                                <div className="dream-shot-node-action">
+                                                    <Sparkles size={12} />
+                                                    <span>{t('首帧生成视频')}</span>
+                                                </div>
+                                                <div className="dream-shot-node-action">
+                                                    <Film size={12} />
+                                                    <span>{t('首尾帧生成视频')}</span>
                                                 </div>
                                             </div>
+                                            {characterLibrary.length > 0 && (
+                                                <div className="mt-2 px-1 w-full">
+                                                    <div className="dream-shot-node-action-label mb-1">{t('角色库')}:</div>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {characterLibrary.slice(0, 8).map(char => (
+                                                            <button
+                                                                key={char.id}
+                                                                className="relative shrink-0 transition-all opacity-80 hover:opacity-100 hover:scale-110"
+                                                                title={`@${char.username}`}
+                                                                onMouseDown={(e) => e.stopPropagation()}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    e.preventDefault();
+                                                                    const imgUrl = char.localCacheUrl || char.profile_picture_url || '';
+                                                                    if (imgUrl) {
+                                                                        setNodes(prev => prev.map(n => n.id === node.id ? { ...n, content: imgUrl, characterRef: char.username } : n));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <img
+                                                                    src={char.localCacheUrl || char.profile_picture_url || ''}
+                                                                    alt={char.username}
+                                                                    className="w-7 h-7 rounded-full object-cover border border-white/20"
+                                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                                />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )
                                 )
@@ -30104,22 +30448,71 @@ ${inputText.substring(0, 15000)} ... (截断)
                         </div>
                     )}
 
-                    {node.type === 'text-node' && (
+                    {node.type === AUDIO_NODE_TYPE && (
                         <div
-                            className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto ${theme === 'dark'
-                                ? 'bg-zinc-900/80'
-                            : theme === 'solarized'
-                                ? 'bg-[#eee8d5]'
-                                    : 'bg-zinc-100'
-                                }`}
+                            className="dream-shot-node-empty h-full w-full pointer-events-auto"
+                            onDrop={(e) => handleAudioDrop(node.id, e)}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
                         >
-                            <div className="flex items-center justify-between px-3 py-2 border-b text-xs font-semibold">
-                                <div className="flex items-center gap-1.5">
-                                    <FileText size={13} className="text-blue-500" />
-                                    <span>{t('文字节点')}</span>
+                            {node.content ? (
+                                <div className="flex h-full w-full flex-col justify-center px-8">
+                                    <FileAudio className="dream-shot-node-icon" size={56} />
+                                    <div className="mb-4 truncate text-center text-[13px] font-semibold text-white/90" title={node.settings?.audioFileName || ''}>
+                                        {node.settings?.audioFileName || t('音频素材')}
+                                    </div>
+                                    <audio
+                                        src={node.content}
+                                        controls
+                                        className="w-full"
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    />
+                                    <label
+                                        className="dream-shot-node-action mt-5 cursor-pointer self-center"
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                        <UploadCloud size={12} />
+                                        <span>{t('更换音频')}</span>
+                                        <input type="file" className="hidden" accept="audio/*" onChange={(e) => handleAudioFileUpload(node.id, e)} />
+                                    </label>
+                                </div>
+                            ) : (
+                                <>
+                                    <FileAudio className="dream-shot-node-icon" size={58} />
+                                    <div className="dream-shot-node-actions">
+                                        <div className="dream-shot-node-action-label">{t('尝试')}:</div>
+                                        <label className="dream-shot-node-action cursor-pointer" onMouseDown={(e) => e.stopPropagation()}>
+                                            <UploadCloud size={12} />
+                                            <span>{t('上传音频')}</span>
+                                            <input type="file" className="hidden" accept="audio/*" onChange={(e) => handleAudioFileUpload(node.id, e)} />
+                                        </label>
+                                        <div className="dream-shot-node-action">
+                                            <FileAudio size={12} />
+                                            <span>{t('拖入 MP3 / WAV / M4A')}</span>
+                                        </div>
+                                        <div className="dream-shot-node-action">
+                                            <Video size={12} />
+                                            <span>{t('音频生视频')}</span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {node.type === 'text-node' && (
+                        <div className={`relative w-full h-full flex flex-col overflow-hidden pointer-events-auto ${theme === 'dark' ? 'bg-[#252525] text-zinc-100' : theme === 'solarized' ? 'bg-[#fdf6e3] text-[#2c2c3a]' : 'bg-white text-zinc-800'}`}>
+                            <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                                <Type size={58} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)' }} />
+                            </div>
+                            <div className="shrink-0 px-[clamp(18px,9%,34px)] flex flex-col gap-1.5 text-xs leading-tight">
+                                <div className={`text-[11px] ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>{t('尝试')}:</div>
+                                <div className={`inline-flex items-center gap-1.5 font-semibold ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700'}`}>
+                                    <FileText size={12} />
+                                    <span>{t('自己编写内容')}</span>
                                 </div>
                             </div>
-                            <div className="flex-1 p-3">
+                            <div className="shrink-0 px-3.5 pt-2 pb-3.5" style={{ height: '34%', minHeight: 70 }}>
                                 <textarea
                                     data-node-type="text-node"
                                     data-node-id={node.id}
@@ -30128,10 +30521,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         updateNodeSettings(node.id, { text: e.target.value });
                                     }}
                                     placeholder={t('输入文字内容...')}
-                                    className={`w-full h-full resize-none outline-none text-sm p-2 rounded border ${theme === 'dark'
-                                        ? 'bg-zinc-800 border-zinc-700 text-zinc-200 placeholder-zinc-500'
-                                        : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5] text-zinc-800 placeholder-zinc-400' : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'
-                                        }`}
+                                    className={`w-full h-full resize-none outline-none text-xs p-2 rounded border custom-scrollbar ${theme === 'dark' ? 'bg-[#1e1e1e] border-zinc-700/50 text-zinc-200 placeholder-zinc-500' : theme === 'solarized' ? 'bg-[#eee8d5] border-[#d7cfb2] text-zinc-800 placeholder-zinc-400' : 'bg-zinc-50 border-zinc-200 text-zinc-800 placeholder-zinc-400'}`}
                                     onMouseDown={(e) => e.stopPropagation()}
                                 />
                             </div>
@@ -30140,7 +30530,7 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                     {node.type === 'video-analyze' && (
                         <div
-                            className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto video-analyze-container ${theme === 'dark' ? 'bg-zinc-900/80' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}
+                            className={`relative w-full h-full flex flex-col transition-colors pointer-events-auto video-analyze-container ${theme === 'dark' ? 'bg-[#252525]' : theme === 'solarized' ? 'bg-[#fdf6e3]' : 'bg-zinc-100'}`}
                             onDrop={(e) => handleVideoAnalyzeDrop(node.id, e)}
                             onDragOver={handleCanvasDragOver}
                             onClick={(e) => {
@@ -30267,7 +30657,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                                         }`}
                                                                     onMouseDown={(e) => e.stopPropagation()}
                                                                 >
-                                                                    <span className="truncate font-mono">{getApiConfigByKey(node.settings?.model)?.id || node.settings?.model || 'gemini-3-pro'}</span>
+                                                                    <span className="truncate font-mono">{getApiConfigByKey(node.settings?.model)?.id || node.settings?.model || t('选择模型')}</span>
                                                                     <ChevronDown size={10} className="opacity-50 shrink-0 ml-1" />
                                                                 </button>
                                                                 {activeDropdown?.nodeId === node.id && activeDropdown.type === 'analyze-model' && (
@@ -30813,7 +31203,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             <div className="flex h-full">
                                 <div
                                     className={`flex flex-col h-full rounded-xl overflow-hidden pointer-events-auto transition-colors flex-1 ${theme === 'dark'
-                                        ? 'bg-zinc-950 border border-zinc-800'
+                                        ? 'bg-[#252525] border border-white/[0.075]'
                                         : theme === 'solarized'
                                             ? 'bg-[#eee8d5] border border-[#d7cfb2]'
                                         : 'bg-white border border-zinc-300 shadow-sm'
@@ -30823,7 +31213,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                 >
                                     {/* Header */}
                                     <div className={`px-4 py-3 border-b flex items-center shrink-0 flex-nowrap overflow-x-auto no-scrollbar ${theme === 'dark'
-                                        ? 'bg-zinc-900 border-zinc-800'
+                                        ? 'bg-[#252525] border-white/10'
                                         : theme === 'solarized'
                                             ? 'bg-[#eee8d5] border-[#eee8d5]'
                                             : 'bg-zinc-50 border-zinc-200'
@@ -33919,13 +34309,23 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 </div>
                                             )
                                         ) : (
-                                            <div
-                                                className={`flex flex-col items-center justify-center text-[11px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'
-                                                    }`}
-                                            >
-                                                <ImageIcon className="w-6 h-6 mb-1 text-zinc-400" />
-                                                <span>{t('连接 AI 绘图 / AI 视频 节点')}</span>
-                                                <span>{t('或从历史记录发送到此处进行预览')}</span>
+                                            <div className="dream-shot-node-empty h-full w-full">
+                                                <Eye className="dream-shot-node-icon" size={54} />
+                                                <div className="dream-shot-node-actions">
+                                                    <div className="dream-shot-node-action-label">{t('尝试')}:</div>
+                                                    <div className="dream-shot-node-action">
+                                                        <LinkIcon size={12} />
+                                                        <span>{t('连接 AI 绘图 / AI 视频 节点')}</span>
+                                                    </div>
+                                                    <div className="dream-shot-node-action">
+                                                        <History size={12} />
+                                                        <span>{t('从历史记录发送到此处')}</span>
+                                                    </div>
+                                                    <div className="dream-shot-node-action">
+                                                        <Maximize2 size={12} />
+                                                        <span>{t('双击内容进入预览')}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -34028,12 +34428,42 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             )}
                                         </div>
                                     )}
-                                    <div
-                                        className={`flex items-center gap-1.5 mb-2 text-xs font-semibold shrink-0 ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
-                                            }`}
-                                    >
-                                        {node.type === 'gen-image' ? <Wand2 size={12} className="text-blue-400" /> : <Video size={12} className="text-purple-400" />}
-                                        <span>{node.type === 'gen-image' ? t('AI 绘图') : t('AI 视频')}</span>
+                                    <div className="dream-shot-node-generator-hero">
+                                        {node.type === 'gen-image' ? (
+                                            <ImageIcon className="dream-shot-node-icon" size={46} />
+                                        ) : (
+                                            <Play className="dream-shot-node-icon" size={52} fill="currentColor" />
+                                        )}
+                                        <div className="dream-shot-node-actions dream-shot-node-actions-compact">
+                                            <div className="dream-shot-node-action-label">{t('尝试')}:</div>
+                                            {node.type === 'gen-image' ? (
+                                                <>
+                                                    <div className="dream-shot-node-action">
+                                                        <ImagePlus size={12} />
+                                                        <span>{t('图生图')}</span>
+                                                    </div>
+                                                    <div className="dream-shot-node-action">
+                                                        <Maximize2 size={12} />
+                                                        <span>{t('图片高清')}</span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="dream-shot-node-action">
+                                                        <Type size={12} />
+                                                        <span>{t('文生视频')}</span>
+                                                    </div>
+                                                    <div className="dream-shot-node-action">
+                                                        <ImageIcon size={12} />
+                                                        <span>{t('图生视频')}</span>
+                                                    </div>
+                                                    <div className="dream-shot-node-action">
+                                                        <Film size={12} />
+                                                        <span>{t('首尾帧')}</span>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                     {connectedImages.length > 0 && (
                                         <div
@@ -35307,7 +35737,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                         <Button
                             variant="ghost"
                             onClick={handleNewProject}
-                            className={theme === 'solarized' ? '!bg-[#616161] !border !border-[#525252] !text-[#fdf6e3] hover:!bg-[#555555]' : ''}
+                            className={theme === 'solarized' ? '!bg-[#616161] !border !border-[#525252] !text-[#fdf6e3] hover:!bg-[#555555]' : theme === 'light' ? '!text-zinc-600 hover:!bg-zinc-100 hover:!text-zinc-900' : ''}
                         >
                             {t('清空')}
                         </Button>
@@ -35315,7 +35745,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             variant="secondary"
                             icon={Settings}
                             onClick={() => setSettingsOpen(true)}
-                            className={theme === 'solarized' ? '!bg-[#616161] !border-[#525252] !text-[#fdf6e3] hover:!bg-[#555555]' : ''}
+                            className={theme === 'solarized' ? '!bg-[#616161] !border-[#525252] !text-[#fdf6e3] hover:!bg-[#555555]' : theme === 'light' ? '!bg-white !border-zinc-200 !text-zinc-700 hover:!bg-zinc-50' : ''}
                         >
                             {t('API 设置')}
                         </Button>
@@ -35532,6 +35962,24 @@ ${inputText.substring(0, 15000)} ... (截断)
                         >
                             <Layout size={18} />
                         </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setNodePaletteOpen(prev => !prev);
+                                setActiveTool('add');
+                            }}
+                            className={`${sideToolButtonBase} mb-1 ${nodePaletteOpen
+                                ? theme === 'dark'
+                                    ? 'bg-white text-zinc-950'
+                                    : 'bg-zinc-900 text-white'
+                                : theme === 'dark'
+                                    ? 'text-zinc-400 hover:text-white hover:bg-white/10'
+                                    : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
+                                }`}
+                            title="添加节点"
+                        >
+                            <Plus size={20} />
+                        </button>
                         {[{ id: 'select', icon: MousePointer2 }, { id: 'history', icon: History }, { id: 'characters', icon: Users }].map((tool) => (
                             <button
                                 key={tool.id}
@@ -35601,6 +36049,79 @@ ${inputText.substring(0, 15000)} ... (截断)
                             <Download size={18} />
                         </button>
                     </div>
+
+                    {nodePaletteOpen && (
+                        <div
+                            className={`absolute left-[76px] top-1/2 z-40 w-60 -translate-y-1/2 rounded-xl border p-3 shadow-2xl ${theme === 'dark'
+                                ? 'bg-[#252525]/98 border-white/10 text-zinc-100'
+                                : theme === 'solarized'
+                                    ? 'bg-[#eee8d5]/95 border-[#d7cfb2] text-[#2c2c3a]'
+                                    : 'bg-white/95 border-zinc-200 text-zinc-900'
+                                }`}
+                            onMouseDown={(e) => e.stopPropagation()}
+                        >
+                            <div className={`mb-3 text-[12px] font-semibold ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                添加节点
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                {LIBTV_NODE_MENU_ITEMS.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <button
+                                            key={item.type}
+                                            className={`flex min-h-[42px] items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${theme === 'dark'
+                                                ? 'text-zinc-200 hover:bg-white/8'
+                                                : 'text-zinc-700 hover:bg-zinc-100'
+                                                }`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const world = screenToWorld(360, window.innerHeight / 2);
+                                                addNode(item.type, world.x, world.y, null);
+                                                setNodePaletteOpen(false);
+                                            }}
+                                        >
+                                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${theme === 'dark' ? 'bg-white/10 text-white' : 'bg-zinc-100 text-zinc-700'}`}>
+                                                <Icon size={17} />
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block text-[13px] font-semibold leading-tight">{item.label}</span>
+                                                <span className={`mt-0.5 block truncate text-[10px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{item.hint}</span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className={`mt-3 border-t pt-3 ${theme === 'dark' ? 'border-white/10' : 'border-zinc-200'}`}>
+                                <div className={`mb-2 text-[11px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'}`}>添加资源</div>
+                                {LIBTV_RESOURCE_MENU_ITEMS.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${theme === 'dark'
+                                                ? 'text-zinc-200 hover:bg-white/8'
+                                                : 'text-zinc-700 hover:bg-zinc-100'
+                                                }`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (item.id === 'upload') {
+                                                    document.querySelector('input[type="file"][multiple]')?.click?.();
+                                                } else {
+                                                    setCharactersOpen(true);
+                                                }
+                                                setNodePaletteOpen(false);
+                                            }}
+                                        >
+                                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${theme === 'dark' ? 'bg-white/10 text-white' : 'bg-zinc-100 text-zinc-700'}`}>
+                                                <Icon size={17} />
+                                            </span>
+                                            {item.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* History Panel */}
                     {historyOpen && (
@@ -36430,7 +36951,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     className={`font-bold text-xs ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
                                         }`}
                                 >
-                                    {t('Sora 角色库')}
+                                    {t('角色库')}
                                 </h3>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -36578,32 +37099,17 @@ ${inputText.substring(0, 15000)} ... (截断)
                                     <div>
                                         <label className={`block text-xs mb-2 ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
                                             }`}>
-                                            视频源
+                                            {t('角色来源')}
                                         </label>
-                                        <div className="flex gap-2 mb-2">
+                                        <div className="flex flex-wrap gap-2 mb-2">
                                             <button
                                                 onClick={() => {
-                                                    setCreateCharacterVideoSourceType('url');
-                                                    setCreateCharacterSelectedTaskId('');
-                                                }}
-                                                className={`px-3 py-1.5 text-xs rounded transition-colors ${createCharacterVideoSourceType === 'url'
-                                                    ? theme === 'dark'
-                                                        ? 'bg-blue-600 text-white'
-                                                        : 'bg-blue-500 text-white'
-                                                    : theme === 'dark'
-                                                        ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                                                    }`}
-                                            >
-                                                输入视频 URL
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setCreateCharacterVideoSourceType('history');
+                                                    setCreateCharacterVideoSourceType('upload');
                                                     setCreateCharacterVideoUrl('');
+                                                    setCreateCharacterSelectedTaskId('');
                                                     setCreateCharacterVideoError(null);
                                                 }}
-                                                className={`px-3 py-1.5 text-xs rounded transition-colors ${createCharacterVideoSourceType === 'history'
+                                                className={`px-3 py-1.5 text-xs rounded transition-colors ${createCharacterVideoSourceType === 'upload'
                                                     ? theme === 'dark'
                                                         ? 'bg-blue-600 text-white'
                                                         : 'bg-blue-500 text-white'
@@ -36612,9 +37118,124 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                         : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                                                     }`}
                                             >
-                                                从历史记录选择
+                                                {t('本地上传图片')}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setCreateCharacterVideoSourceType('history-image');
+                                                    setCreateCharacterVideoUrl('');
+                                                    setCreateCharacterSelectedTaskId('');
+                                                    setCreateCharacterVideoError(null);
+                                                }}
+                                                className={`px-3 py-1.5 text-xs rounded transition-colors ${createCharacterVideoSourceType === 'history-image'
+                                                    ? theme === 'dark'
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-blue-500 text-white'
+                                                    : theme === 'dark'
+                                                        ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                                                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                                                    }`}
+                                            >
+                                                {t('从历史选择')}
                                             </button>
                                         </div>
+
+                                        {createCharacterVideoSourceType === 'upload' && (
+                                            <div className="space-y-3">
+                                                <input
+                                                    type="text"
+                                                    value={createCharacterVideoUrl}
+                                                    onChange={(e) => setCreateCharacterVideoUrl(e.target.value)}
+                                                    placeholder={t('角色名称...')}
+                                                    className={`w-full px-3 py-2 text-xs rounded border outline-none ${theme === 'dark'
+                                                        ? 'bg-zinc-900 border-zinc-700 text-zinc-200 placeholder-zinc-600'
+                                                        : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'
+                                                        }`}
+                                                />
+                                                <label
+                                                    className={`flex items-center justify-center gap-2 w-full py-6 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${theme === 'dark'
+                                                        ? 'border-zinc-700 hover:border-blue-500/50 bg-zinc-900/50 text-zinc-400'
+                                                        : 'border-zinc-300 hover:border-blue-400 bg-zinc-50 text-zinc-500'
+                                                        }`}
+                                                >
+                                                    <UploadCloud size={20} />
+                                                    <span className="text-xs">{t('点击选择图片')}</span>
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            const reader = new FileReader();
+                                                            reader.onload = (ev) => {
+                                                                const imgUrl = ev.target.result;
+                                                                const name = createCharacterVideoUrl.trim() || file.name.replace(/\.[^.]+$/, '') || `角色${Date.now()}`;
+                                                                const newChar = {
+                                                                    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                                                    username: name,
+                                                                    profile_picture_url: imgUrl,
+                                                                    permalink: ''
+                                                                };
+                                                                setCharacterLibrary(prev => [...prev, newChar]);
+                                                                setCreateCharacterOpen(false);
+                                                                setCreateCharacterVideoUrl('');
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }}
+                                                    />
+                                                </label>
+                                            </div>
+                                        )}
+
+                                        {createCharacterVideoSourceType === 'history-image' && (
+                                            <div className="space-y-3">
+                                                <input
+                                                    type="text"
+                                                    value={createCharacterVideoUrl}
+                                                    onChange={(e) => setCreateCharacterVideoUrl(e.target.value)}
+                                                    placeholder={t('角色名称...')}
+                                                    className={`w-full px-3 py-2 text-xs rounded border outline-none ${theme === 'dark'
+                                                        ? 'bg-zinc-900 border-zinc-700 text-zinc-200 placeholder-zinc-600'
+                                                        : 'bg-white border-zinc-300 text-zinc-800 placeholder-zinc-400'
+                                                        }`}
+                                                />
+                                                <div className={`max-h-52 overflow-y-auto custom-scrollbar rounded-lg border ${theme === 'dark' ? 'border-zinc-700 bg-zinc-900/50' : 'border-zinc-200 bg-zinc-50'}`}>
+                                                    <div className="grid grid-cols-4 gap-1.5 p-2">
+                                                        {history.filter(h => h.type === 'image' && h.status === 'completed' && (h.url || h.localCacheUrl || h.originalUrl)).slice(0, 32).map(item => {
+                                                            const imgUrl = item.localCacheUrl || item.url || item.originalUrl || '';
+                                                            return (
+                                                                <button
+                                                                    key={item.id}
+                                                                    className={`aspect-square rounded-md overflow-hidden border-2 transition-all hover:scale-105 ${theme === 'dark' ? 'border-zinc-700 hover:border-blue-500' : 'border-zinc-200 hover:border-blue-400'}`}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const name = createCharacterVideoUrl.trim() || item.prompt?.slice(0, 12) || `角色${Date.now()}`;
+                                                                        const newChar = {
+                                                                            id: `hist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                                                                            username: name,
+                                                                            profile_picture_url: imgUrl,
+                                                                            permalink: ''
+                                                                        };
+                                                                        setCharacterLibrary(prev => [...prev, newChar]);
+                                                                        setCreateCharacterOpen(false);
+                                                                        setCreateCharacterVideoUrl('');
+                                                                    }}
+                                                                    title={item.prompt?.slice(0, 50) || ''}
+                                                                >
+                                                                    <img src={imgUrl} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.parentElement.style.display = 'none'; }} />
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {history.filter(h => h.type === 'image' && h.status === 'completed' && (h.url || h.localCacheUrl || h.originalUrl)).length === 0 && (
+                                                        <div className={`text-center py-6 text-xs ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                                                            {t('暂无图片历史记录')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {createCharacterVideoSourceType === 'url' ? (
                                             <input
@@ -36703,6 +37324,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                                         })()}
                                     </div>
 
+                                    {(createCharacterVideoSourceType === 'url' || createCharacterVideoSourceType === 'history') && (
+                                    <>
                                     {/* 时间范围 */}
                                     <div>
                                         <label className={`block text-xs mb-2 ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
@@ -36821,6 +37444,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             {createCharacterSubmitting ? '创建中...' : '创建角色'}
                                         </button>
                                     </div>
+                                    </>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -37390,8 +38015,8 @@ ${inputText.substring(0, 15000)} ... (截断)
                             >
                                 <div className="p-1">
                                     {[
-                                        { type: 'input-image', label: t('图片输入') },
-                                        { type: 'text-node', label: t('文字节点') },
+                                        { type: 'input-image', label: t('图片节点') },
+                                        { type: 'text-node', label: t('文本节点') },
                                         { type: 'novel-input', label: t('小说输入') },
                                         {
                                             type: 'extract-characters-scenes',
@@ -37407,13 +38032,14 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 { type: 'create-scene', label: t('创建场景') }
                                             ]
                                         },
-                                        { type: 'video-input', label: t('视频输入 / 关键帧整理') },
+                                        { type: 'video-input', label: t('视频节点') },
                                         { type: 'video-analyze', label: t('视频拆解 / 提示词反推') },
-                                        { type: 'storyboard-node', label: t('智能分镜表') },
-                                        { type: 'gen-image', label: t('AI 绘图') },
-                                        { type: 'gen-video', label: t('AI 视频') },
+                                        { type: 'storyboard-node', label: t('脚本生成器') },
+                                        { type: 'gen-image', label: t('图片生成') },
+                                        { type: 'gen-video', label: t('视频合成') },
                                         { type: 'image-compare', label: t('图像对比') },
                                         { type: 'preview', label: t('预览窗口') },
+                                        { type: AUDIO_NODE_TYPE, label: t('音频') },
                                         { type: FOR_LOOP_NODE_TYPE, label: t('For 列表循环') },
                                         {
                                             type: 'workflow-presets',
@@ -37426,7 +38052,12 @@ ${inputText.substring(0, 15000)} ... (截断)
                                             ]
                                         },
                                         { type: 'local-save', label: t('保存到本地') }
-                                    ].map(item => (
+                                    ].filter(item => LIBTV_NODE_MENU_ITEMS.some((allowed) => allowed.type === item.type))
+                                        .sort((left, right) => (
+                                            LIBTV_NODE_MENU_ITEMS.findIndex((entry) => entry.type === left.type)
+                                            - LIBTV_NODE_MENU_ITEMS.findIndex((entry) => entry.type === right.type)
+                                        ))
+                                        .map(item => (
                                         <div key={item.type}>
                                             {item.children ? (
                                                 <div className="relative">
@@ -38575,7 +39206,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                 ? 'bg-[#16162a] border-zinc-800'
                                                 : theme === 'solarized'
                                                     ? 'bg-[#fdf6e3] border-[#d7cfb2]'
-                                                    : theme === 'solarized' ? 'bg-[#fdf6e3] border-[#eee8d5]' : 'bg-zinc-50 border-zinc-200'
+                                                    : 'bg-zinc-50 border-zinc-200'
                                                 }`}>
                                         {/* Provider 标题行 (可折叠) */}
                                         <button
@@ -38698,111 +39329,89 @@ ${inputText.substring(0, 15000)} ... (截断)
 
                                         {/* Provider 展开内容 */}
                                         {expandedProviders[providerKey] && (
-                                            <div className={`px-3 pb-3 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
-                                                {/* Provider 级别设置 */}
-                                                <div className="pt-3 pb-2 space-y-2">
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('接口类型')}</label>
-                                                        <select
-                                                            value={providers[providerKey]?.apiType || 'openai'}
-                                                            onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], apiType: e.target.value } }))}
-                                                            className={`col-span-3 w-full rounded px-2 py-1 text-xs outline-none focus:border-blue-600/50 border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
-                                                        >
-                                                            <option value="openai">OpenAI</option>
-                                                            <option value="gemini">Gemini</option>
-                                                            <option value="modelscope">ModelScope</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('本地代理')}</label>
-                                                        <div className="col-span-3 flex items-center gap-2">
-                                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={!!providers[providerKey]?.useProxy}
-                                                                    onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], useProxy: e.target.checked } }))}
-                                                                    className="sr-only peer"
-                                                                />
-                                                                <div className={`w-9 h-5 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/50 ${providers[providerKey]?.useProxy
-                                                                    ? 'bg-blue-600'
-                                                                    : theme === 'dark'
-                                                                        ? 'bg-zinc-700'
-                                                                        : 'bg-zinc-300'
-                                                                    } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
-                                                            </label>
-                                                            <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>使用 {localServerUrl || t('本地代理')}/proxy</span>
+                                            <div className={`px-4 pb-4 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                                                {/* Provider 核心设置 */}
+                                                <div className="pt-4 space-y-4">
+
+                                                    {/* API Key */}
+                                                    <div className="space-y-1.5">
+                                                        <label className={`text-xs font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>API Key</label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type={providerKeyVisible?.[providerKey] ? 'text' : 'password'}
+                                                                value={providers[providerKey]?.key || ''}
+                                                                onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], key: e.target.value } }))}
+                                                                className={`w-full rounded-lg px-3 py-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500/30 border pr-9 ${theme === 'dark' ? 'bg-zinc-900/80 border-zinc-700/60 text-zinc-200' : 'bg-white border-zinc-300 text-zinc-900'}`}
+                                                                placeholder="sk-..."
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setProviderKeyVisible(prev => ({ ...prev, [providerKey]: !prev?.[providerKey] }))}
+                                                                className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
+                                                            >
+                                                                {providerKeyVisible?.[providerKey] ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                            </button>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('异步模式')}</label>
-                                                        <div className="col-span-3 flex items-center gap-2">
-                                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={!!providers[providerKey]?.forceAsync}
-                                                                    onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], forceAsync: e.target.checked } }))}
-                                                                    className="sr-only peer"
-                                                                />
-                                                                <div className={`w-9 h-5 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/50 ${providers[providerKey]?.forceAsync
-                                                                    ? 'bg-blue-600'
-                                                                    : theme === 'dark'
-                                                                        ? 'bg-zinc-700'
-                                                                        : 'bg-zinc-300'
-                                                                    } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
-                                                            </label>
-                                                            <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('ModelScope 建议开启')}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>API Key</label>
-                                                        <input
-                                                            type="password"
-                                                            value={providers[providerKey]?.key || ''}
-                                                            onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], key: e.target.value } }))}
-                                                            className={`col-span-3 w-full rounded px-2 py-1 text-xs outline-none focus:border-blue-600/50 border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
-                                                            placeholder="sk-..."
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>Base URL</label>
+
+                                                    {/* 请求地址 */}
+                                                    <div className="space-y-1.5">
+                                                        <label className={`text-xs font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}>{t('请求地址')}</label>
                                                         <input
                                                             type="text"
                                                             value={providers[providerKey]?.url || ''}
                                                             onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], url: e.target.value } }))}
-                                                            className={`col-span-3 w-full rounded px-2 py-1 text-xs outline-none focus:border-blue-600/50 border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
-                                                            placeholder="https://..."
+                                                            className={`w-full rounded-lg px-3 py-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500/30 border ${theme === 'dark' ? 'bg-zinc-900/80 border-zinc-700/60 text-zinc-200' : 'bg-white border-zinc-300 text-zinc-900'}`}
+                                                            placeholder="https://api.example.com"
                                                         />
+                                                        <p className={`text-[9px] ${theme === 'dark' ? 'text-zinc-600' : 'text-zinc-400'}`}>{t('填写完整的API端点地址，不要以斜杠结尾')}</p>
                                                     </div>
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('模型列表URL')}</label>
-                                                        <input
-                                                            type="text"
-                                                            value={providers[providerKey]?.modelsUrl || ''}
-                                                            onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], modelsUrl: e.target.value } }))}
-                                                            className={`col-span-3 w-full rounded px-2 py-1 text-xs outline-none focus:border-blue-600/50 border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
-                                                            placeholder={`${providers[providerKey]?.url || 'https://...'}/v1/models`}
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-4 items-center gap-2">
-                                                        <label className={`text-[10px] font-medium uppercase tracking-wider text-right ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('完整URL')}</label>
-                                                        <div className="col-span-3 flex items-center gap-2">
-                                                            <label className="relative inline-flex items-center cursor-pointer">
+
+                                                    {/* 高级选项折叠 */}
+                                                    <details className={`rounded-lg border ${theme === 'dark' ? 'border-zinc-800/60 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50'}`}>
+                                                        <summary className={`cursor-pointer select-none px-3 py-2 text-[11px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                                                            {t('高级选项')}
+                                                        </summary>
+                                                        <div className="px-3 pb-3 space-y-3">
+                                                            <div className="space-y-1">
+                                                                <label className={`text-[10px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('接口类型')}</label>
+                                                                <select
+                                                                    value={providers[providerKey]?.apiType || 'openai'}
+                                                                    onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], apiType: e.target.value } }))}
+                                                                    className={`w-full rounded-lg px-3 py-2 text-xs outline-none border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
+                                                                >
+                                                                    <option value="openai">OpenAI</option>
+                                                                    <option value="gemini">Gemini</option>
+                                                                    <option value="modelscope">ModelScope</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <label className={`text-[10px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('模型列表URL')}</label>
                                                                 <input
-                                                                    type="checkbox"
-                                                                    checked={!!providers[providerKey]?.useFullUrl}
-                                                                    onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], useFullUrl: e.target.checked } }))}
-                                                                    className="sr-only peer"
+                                                                    type="text"
+                                                                    value={providers[providerKey]?.modelsUrl || ''}
+                                                                    onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], modelsUrl: e.target.value } }))}
+                                                                    className={`w-full rounded-lg px-3 py-2 text-xs outline-none border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-300 text-zinc-900'}`}
+                                                                    placeholder={`${providers[providerKey]?.url || 'https://...'}/v1/models`}
                                                                 />
-                                                                <div className={`w-9 h-5 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/50 ${providers[providerKey]?.useFullUrl
-                                                                    ? 'bg-blue-600'
-                                                                    : theme === 'dark'
-                                                                        ? 'bg-zinc-700'
-                                                                        : 'bg-zinc-300'
-                                                                    } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
-                                                            </label>
-                                                            <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('开启后 Base URL 作为完整端点，不拼接路径')}</span>
+                                                                <p className={`text-[9px] ${theme === 'dark' ? 'text-zinc-600' : 'text-zinc-400'}`}>{t('自定义获取模型列表的地址，留空使用默认')}</p>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className={`text-[10px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('本地代理')}</span>
+                                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                                    <input type="checkbox" checked={!!providers[providerKey]?.useProxy} onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], useProxy: e.target.checked } }))} className="sr-only peer" />
+                                                                    <div className={`w-9 h-5 rounded-full peer ${providers[providerKey]?.useProxy ? 'bg-blue-600' : theme === 'dark' ? 'bg-zinc-700' : 'bg-zinc-300'} peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
+                                                                </label>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className={`text-[10px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-600'}`}>{t('异步模式')}</span>
+                                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                                    <input type="checkbox" checked={!!providers[providerKey]?.forceAsync} onChange={(e) => setProviders(prev => ({ ...prev, [providerKey]: { ...prev[providerKey], forceAsync: e.target.checked } }))} className="sr-only peer" />
+                                                                    <div className={`w-9 h-5 rounded-full peer ${providers[providerKey]?.forceAsync ? 'bg-blue-600' : theme === 'dark' ? 'bg-zinc-700' : 'bg-zinc-300'} peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all`}></div>
+                                                                </label>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    </details>
                                                 </div>
 
                                                 {/* 该 Provider 下的模型列表 */}
@@ -38842,121 +39451,99 @@ ${inputText.substring(0, 15000)} ... (截断)
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        {group.models.map(api => {
-                                                            const isEditing = editingApiModels.has(api._uid);
-                                                            const libraryLabel = api.libraryId
-                                                                ? (modelLibraryMap.get(api.libraryId)?.displayName
-                                                                    || modelLibraryMap.get(api.libraryId)?.modelName
-                                                                    || api.libraryId)
-                                                                : '';
-                                                            const resolvedApiType = api.apiType || providers[providerKey]?.apiType || 'openai';
-                                                            const statusKey = api._uid || api.id;
-                                                            return (
-                                                                <div key={api._uid} className={`flex flex-col gap-2 px-2 py-2 rounded ${theme === 'dark'
-                                                                    ? 'bg-zinc-900/50 hover:bg-zinc-800/50'
-                                                                    : theme === 'solarized'
-                                                                        ? 'bg-[#fdf6e3] hover:bg-[#eee8d5]'
-                                                                        : 'bg-white hover:bg-zinc-100'
-                                                                    }`}>
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        <div className="flex flex-wrap items-center gap-2 flex-1">
-                                                                            <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(api._uid)}`}></div>
-                                                                            <input
-                                                                                type="text"
-                                                                                value={api.id || ''}
-                                                                                onChange={(e) => updateApiConfig(api._uid, { id: e.target.value })}
-                                                                                onKeyDown={(e) => e.stopPropagation()}
-                                                                                onClick={(e) => e.stopPropagation()}
-                                                                                className={`text-xs bg-transparent border-b border-transparent hover:border-zinc-600 focus:border-blue-500 outline-none flex-1 min-w-[120px] font-mono ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}
-                                                                                placeholder="model-id"
-                                                                                title={`模型 ID: ${api.id}`}
-                                                                                disabled={!isEditing}
-                                                                            />
-                                                                            <select
-                                                                                value={api.type || 'Chat'}
-                                                                                onChange={(e) => updateApiConfig(api._uid, { type: e.target.value })}
-                                                                                className={`text-[9px] px-1 py-0.5 rounded cursor-pointer outline-none ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}
-                                                                                disabled={!isEditing || !!api.libraryId}
-                                                                            >
-                                                                                <option value="Chat">Chat</option>
-                                                                                <option value="Image">Image</option>
-                                                                                <option value="ChatImage">Chat Image</option>
-                                                                                <option value="Video">Video</option>
-                                                                            </select>
-                                                                            <select
-                                                                                value={api.libraryId || ''}
-                                                                                onChange={(e) => {
-                                                                                    const selectedId = e.target.value || null;
-                                                                                    const selected = selectedId ? modelLibraryMap.get(selectedId) : null;
-                                                                                    const updates = { libraryId: selectedId };
-                                                                                    if (selected) {
-                                                                                        updates.modelName = selected.modelName;
-                                                                                        updates.displayName = selected.displayName;
-                                                                                        updates.type = selected.type || api.type;
-                                                                                        updates.apiType = selected.apiType || api.apiType;
-                                                                                        updates.ratioLimits = Array.isArray(selected.ratioLimits) ? selected.ratioLimits : null;
-                                                                                        updates.resolutionLimits = Array.isArray(selected.resolutionLimits) ? selected.resolutionLimits : null;
-                                                                                        updates.durations = Array.isArray(selected.durations) ? selected.durations : null;
-                                                                                        updates.videoResolutions = Array.isArray(selected.videoResolutions) ? selected.videoResolutions : null;
-                                                                                    }
-                                                                                    updateApiConfig(api._uid, updates);
-                                                                                }}
-                                                                                className={`text-[9px] px-1 py-0.5 rounded cursor-pointer outline-none min-w-[120px] ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}
-                                                                                disabled={!isEditing}
-                                                                            >
-                                                                                <option value="">{t('不引用模型库')}</option>
-                                                                                {modelLibrary.map((entry) => (
-                                                                                    <option key={entry.id} value={entry.id}>{entry.displayName || entry.modelName || entry.id}</option>
-                                                                                ))}
-                                                                            </select>
-                                                                            <select
-                                                                                value={api.apiType || ''}
-                                                                                onChange={(e) => updateApiConfig(api._uid, { apiType: e.target.value || null })}
-                                                                                className={`text-[9px] px-1 py-0.5 rounded cursor-pointer outline-none ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}
-                                                                                disabled={!isEditing || !!api.libraryId}
-                                                                            >
-                                                                                <option value="">{t('跟随 Provider')}</option>
-                                                                                <option value="openai">OpenAI</option>
-                                                                                <option value="gemini">Gemini</option>
-                                                                                <option value="modelscope">ModelScope</option>
-                                                                            </select>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-1">
-                                                                            <button
-                                                                                onClick={() => exportApiModelConfig(api)}
-                                                                                className={`px-1.5 py-0.5 rounded text-[9px] ${theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
-                                                                                title={t('导出该模型')}
-                                                                            >
-                                                                                <Download size={10} />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => setApiModelEditing(api._uid, !isEditing)}
-                                                                                className={`px-1.5 py-0.5 rounded text-[9px] ${theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
-                                                                                title={isEditing ? t('完成编辑') : t('编辑')}
-                                                                            >
+                                                    <div className="space-y-3">
+                                                        {/* 按类型分组显示模型 */}
+                                                        {(() => {
+                                                            const imageModels = group.models.filter(m => isImageModelType(m.type));
+                                                            const videoModels = group.models.filter(m => m.type === 'Video');
+                                                            const chatModels = group.models.filter(m => isChatModelType(m.type));
+                                                            const renderModelItem = (api) => {
+                                                                const isEditing = editingApiModels.has(api._uid);
+                                                                const statusKey = api._uid || api.id;
+                                                                return (
+                                                                    <div key={api._uid} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg group/model ${theme === 'dark'
+                                                                        ? 'hover:bg-zinc-800/60'
+                                                                        : 'hover:bg-zinc-100'
+                                                                        }`}>
+                                                                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${getStatusColor(api._uid)}`}></div>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={api.id || ''}
+                                                                            onChange={(e) => updateApiConfig(api._uid, { id: e.target.value })}
+                                                                            onKeyDown={(e) => e.stopPropagation()}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            className={`text-[11px] bg-transparent border-none outline-none flex-1 min-w-0 font-mono ${isEditing ? 'border-b border-blue-500' : ''} ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'}`}
+                                                                            placeholder="model-id"
+                                                                            disabled={!isEditing}
+                                                                        />
+                                                                        <div className="flex items-center gap-0.5 opacity-0 group-hover/model:opacity-100 transition-opacity">
+                                                                            {isEditing && (
+                                                                                <>
+                                                                                    <select
+                                                                                        value={api.type || 'Chat'}
+                                                                                        onChange={(e) => updateApiConfig(api._uid, { type: e.target.value })}
+                                                                                        className={`text-[9px] px-1 py-0.5 rounded cursor-pointer outline-none ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-500'}`}
+                                                                                    >
+                                                                                        <option value="Chat">Chat</option>
+                                                                                        <option value="Image">Image</option>
+                                                                                        <option value="ChatImage">ChatImage</option>
+                                                                                        <option value="Video">Video</option>
+                                                                                    </select>
+                                                                                    <select
+                                                                                        value={api.libraryId || ''}
+                                                                                        onChange={(e) => {
+                                                                                            const selectedId = e.target.value || null;
+                                                                                            const selected = selectedId ? modelLibraryMap.get(selectedId) : null;
+                                                                                            const updates = { libraryId: selectedId };
+                                                                                            if (selected) {
+                                                                                                updates.modelName = selected.modelName;
+                                                                                                updates.displayName = selected.displayName;
+                                                                                                updates.type = selected.type || api.type;
+                                                                                                updates.apiType = selected.apiType || api.apiType;
+                                                                                                updates.ratioLimits = Array.isArray(selected.ratioLimits) ? selected.ratioLimits : null;
+                                                                                                updates.resolutionLimits = Array.isArray(selected.resolutionLimits) ? selected.resolutionLimits : null;
+                                                                                                updates.durations = Array.isArray(selected.durations) ? selected.durations : null;
+                                                                                                updates.videoResolutions = Array.isArray(selected.videoResolutions) ? selected.videoResolutions : null;
+                                                                                            }
+                                                                                            updateApiConfig(api._uid, updates);
+                                                                                        }}
+                                                                                        className={`text-[9px] px-1 py-0.5 rounded cursor-pointer outline-none ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-500'}`}
+                                                                                    >
+                                                                                        <option value="">{t('无模型库')}</option>
+                                                                                        {modelLibrary.map((entry) => (
+                                                                                            <option key={entry.id} value={entry.id}>{entry.displayName || entry.modelName || entry.id}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                </>
+                                                                            )}
+                                                                            <button onClick={() => setApiModelEditing(api._uid, !isEditing)} className={`p-0.5 rounded ${theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`} title={isEditing ? t('完成') : t('编辑')}>
                                                                                 {isEditing ? <Check size={10} /> : <Pencil size={10} />}
                                                                             </button>
-                                                                            <button
-                                                                                onClick={() => testApiConnection(statusKey)}
-                                                                                disabled={apiTesting === statusKey}
-                                                                                className={`px-1.5 py-0.5 rounded text-[9px] ${apiStatus[statusKey] === 'success' ? 'text-green-500' : theme === 'dark' ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
-                                                                            >
-                                                                                {apiTesting === statusKey ? <Loader2 size={10} className="animate-spin" /> : apiStatus[statusKey] === 'success' ? <CheckCircle2 size={10} /> : <LinkIcon size={10} />}
-                                                                            </button>
-                                                                            <button onClick={() => deleteApiConfig(api._uid)} className={`px-1 ${theme === 'dark' ? 'text-zinc-600 hover:text-red-500' : 'text-zinc-400 hover:text-red-500'}`}>
+                                                                            <button onClick={() => deleteApiConfig(api._uid)} className={`p-0.5 ${theme === 'dark' ? 'text-zinc-600 hover:text-red-400' : 'text-zinc-400 hover:text-red-500'}`}>
                                                                                 <Trash2 size={10} />
                                                                             </button>
                                                                         </div>
                                                                     </div>
-                                                                    <div className={`flex flex-wrap items-center gap-2 text-[9px] ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500'}`}>
-                                                                        <span>{t('模型库：')}{api.libraryId ? libraryLabel : t('未引用')}</span>
-                                                                        <span>{t('API模型：')}{api.modelName || api.id}</span>
-                                                                        <span>{t('接口：')}{resolvedApiType}</span>
+                                                                );
+                                                            };
+                                                            const renderSection = (label, models, color) => models.length > 0 && (
+                                                                <div>
+                                                                    <div className={`flex items-center gap-1.5 mb-1 px-1`}>
+                                                                        <div className={`w-2 h-2 rounded-full ${color}`}></div>
+                                                                        <span className={`text-[10px] font-medium ${theme === 'dark' ? 'text-zinc-400' : 'text-zinc-600'}`}>{label}</span>
+                                                                        <span className={`text-[9px] ${theme === 'dark' ? 'text-zinc-600' : 'text-zinc-400'}`}>({models.length})</span>
                                                                     </div>
+                                                                    <div>{models.map(renderModelItem)}</div>
                                                                 </div>
                                                             );
-                                                        })}
+                                                            return (
+                                                                <>
+                                                                    {renderSection(t('绘图'), imageModels, 'bg-purple-500')}
+                                                                    {renderSection(t('视频'), videoModels, 'bg-blue-500')}
+                                                                    {renderSection(t('文本'), chatModels, 'bg-green-500')}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             </div>
@@ -40918,7 +41505,7 @@ ${inputText.substring(0, 15000)} ... (截断)
                             )}
 
                             <div className={`pt-2 flex justify-end gap-2 border-t mt-3 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
-                                <Button variant="secondary" onClick={() => setSettingsOpen(false)}>{t('关闭')}</Button>
+                                <Button variant="secondary" onClick={() => setSettingsOpen(false)} className={theme === 'light' ? '!bg-zinc-100 !border-zinc-200 !text-zinc-700 hover:!bg-zinc-200' : theme === 'solarized' ? '!bg-[#d7cfb2] !border-[#c0b896] !text-[#2c2c3a] hover:!bg-[#c8c0a6]' : ''}>{t('关闭')}</Button>
                             </div>
 
 

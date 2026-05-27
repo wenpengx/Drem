@@ -16,6 +16,7 @@ const FOLDER_LOOP_ACTION_NODE_TYPES = new Set([
   'gen-video',
   'local-save',
   'preview',
+  'input-image',
 ]);
 
 export const isFolderLoopImageName = (name = '') => {
